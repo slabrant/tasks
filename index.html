@@ -16,10 +16,14 @@
     </div>
 
     <div id="details-pane" class="hidden">
-        <div class="pane-header">
-            <h3>Task Details</h3>
-        </div>
         <div class="pane-content">
+
+            <label for="task-parent-search">Parent</label>
+            <div class="combobox-container">
+                <input type="text" id="task-parent-search" placeholder="Search parent...">
+                <div id="task-parent-options" class="combobox-options hidden"></div>
+            </div>
+
             <label for="task-name">Name</label>
             <input type="text" id="task-name">
             

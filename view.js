@@ -6,11 +6,14 @@ export class View {
         this.nodeLayer = document.getElementById('node-layer');
         this.connectorLayer = document.getElementById('connector-layer');
         this.detailsPane = document.getElementById('details-pane');
+        this.parentSearch = document.getElementById('task-parent-search');
+        this.parentOptions = document.getElementById('task-parent-options');
 
         this.camera = { x: 0, y: 0, zoom: 1 };
         this.drag = { isDragging: false, lastX: 0, lastY: 0, hasMoved: false };
         this.touch = { lastDistance: 0, lastX: 0, lastY: 0, isTouching: false, startTime: 0, hasMoved: false };
         this.selectedNodeId = null;
+        this.isMenuOpen = false;
 
         this.nodeWidth = 180; // Increased from 160
         this.nodeHeight = 45; // Increased from 40
@@ -51,15 +54,13 @@ export class View {
             if (this.detailsPane.contains(e.target)) return;
             if (e.target.closest('.ui-overlay')) return;
             if (e.target.closest('.modal')) return;
-            if (e.target.closest('.node')) return;
+            // Removed: if (e.target.closest('.node')) return;
 
             if (e.button === 0 || e.button === 1) { // Left or Middle
-                if (e.target === this.canvasContainer || e.target === this.treeContainer) {
-                    this.drag.isDragging = true;
-                    this.drag.lastX = e.clientX;
-                    this.drag.lastY = e.clientY;
-                    this.drag.hasMoved = false;
-                }
+                this.drag.isDragging = true;
+                this.drag.lastX = e.clientX;
+                this.drag.lastY = e.clientY;
+                this.drag.hasMoved = false;
             }
         });
 
@@ -79,7 +80,7 @@ export class View {
         window.addEventListener('mouseup', (e) => {
             if (this.drag.isDragging && !this.drag.hasMoved && e.button === 0) {
                 // If it was a click without dragging on background, deselect
-                if (e.target === this.canvasContainer || e.target === this.treeContainer) {
+                if (e.target === this.canvasContainer || e.target === this.treeContainer || e.target === this.nodeLayer) {
                     this.deselect();
                 }
             }
@@ -135,7 +136,7 @@ export class View {
         }, { passive: false });
 
         this.canvasContainer.addEventListener('touchmove', (e) => {
-            if (!this.touch.isTouching) return;
+            if (!this.touch.isTouching || this.isMenuOpen) return;
             
             if (e.touches.length === 1) {
                 const dx = e.touches[0].clientX - this.touch.lastX;
@@ -188,12 +189,78 @@ export class View {
 
         this.canvasContainer.addEventListener('touchend', (e) => {
             if (this.touch.isTouching && !this.touch.hasMoved && e.touches.length === 0) {
-                if (e.target === this.canvasContainer || e.target === this.treeContainer) {
+                if (e.target === this.canvasContainer || e.target === this.treeContainer || e.target === this.nodeLayer) {
                     this.deselect();
                 }
             }
             this.touch.isTouching = false;
         });
+
+        // Parent Combobox Events
+        this.parentSearch.addEventListener('input', () => {
+            this.updateParentOptions(this.parentSearch.value);
+        });
+
+        this.parentSearch.addEventListener('focus', () => {
+            this.updateParentOptions(this.parentSearch.value);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.combobox-container')) {
+                this.parentOptions.classList.add('hidden');
+            }
+        });
+    }
+
+    updateParentOptions(search = "") {
+        if (!this.selectedNodeId) return;
+        const allNodes = [];
+        const traverse = (node) => {
+            allNodes.push(node);
+            node.children.forEach(traverse);
+        };
+        traverse(this.state.root);
+
+        const nodeToMove = this.state.findNode(this.selectedNodeId);
+        const currentParent = this.state.findParent(this.selectedNodeId);
+
+        // Filter valid parents: not the node itself, not its descendants, and matches search
+        const isDescendant = (parent, child) => {
+            let curr = parent;
+            while (curr) {
+                if (curr.id === child.id) return true;
+                curr = this.state.findParent(curr.id);
+            }
+            return false;
+        };
+
+        const options = allNodes.filter(n => {
+            if (n.id === this.selectedNodeId) return false;
+            if (isDescendant(n, nodeToMove)) return false;
+            return !(search && !n.name.toLowerCase().includes(search.toLowerCase()));
+
+        });
+
+        this.parentOptions.innerHTML = '';
+        options.forEach(opt => {
+            const div = document.createElement('div');
+            div.className = 'combobox-item';
+            if (currentParent && opt.id === currentParent.id) div.classList.add('selected');
+            div.textContent = opt.name || "(Unnamed Task)";
+            div.addEventListener('click', () => {
+                this.state.moveNode(this.selectedNodeId, opt.id);
+                this.parentSearch.value = opt.name;
+                this.parentOptions.classList.add('hidden');
+                this.render();
+            });
+            this.parentOptions.appendChild(div);
+        });
+
+        if (options.length > 0) {
+            this.parentOptions.classList.remove('hidden');
+        } else {
+            this.parentOptions.classList.add('hidden');
+        }
     }
 
     applyTransform() {
@@ -272,7 +339,10 @@ export class View {
         if (node.complete) div.classList.add('complete');
         if (node.notes && node.notes.trim()) div.classList.add('has-notes');
         
-        div.textContent = node.name || " ";
+        const text = document.createElement('span');
+        text.className = 'node-text';
+        text.textContent = node.name || " ";
+        div.appendChild(text);
         div.style.left = `${layout.x}px`;
         div.style.top = `${layout.y}px`;
         div.style.width = `${this.nodeWidth}px`;
@@ -290,17 +360,32 @@ export class View {
 
         // Click handler with movement check
         div.addEventListener('click', (e) => {
-            if (this.drag.hasMoved) return;
+            if (this.drag.hasMoved || this.touch.hasMoved) {
+                this.drag.hasMoved = false;
+                this.touch.hasMoved = false;
+                return;
+            }
             e.stopPropagation();
             this.selectNode(node.id);
         });
 
         // Touch handlers for Long Press Radial Menu
         let touchTimer = null;
+        let menuActive = false;
+        
         div.addEventListener('touchstart', (e) => {
             if (e.touches.length !== 1) return;
+            // Record starting position for move threshold
+            const startTouch = e.touches[0];
+            const startX = startTouch.clientX;
+            const startY = startTouch.clientY;
+
+            // Reset movement tracking for this specific touch session
+            this.touch.hasMoved = false;
+
             touchTimer = setTimeout(() => {
-                this.showRadialMenu(e.touches[0].clientX, e.touches[0].clientY, node);
+                this.showRadialMenu(startX, startY, node);
+                menuActive = true;
                 touchTimer = null;
             }, 600);
         }, { passive: true });
@@ -310,24 +395,41 @@ export class View {
                 clearTimeout(touchTimer);
                 touchTimer = null;
                 // If it was a quick tap, select node
-                if (!this.touch.hasMoved) {
+                if (!this.touch.hasMoved && !menuActive) {
                     e.stopPropagation();
                     this.selectNode(node.id);
                 }
+            } else if (menuActive) {
+                e.preventDefault(); // Prevent ghost clicks when radial menu was active
             }
+            menuActive = false;
         });
 
-        div.addEventListener('touchmove', () => {
+        div.addEventListener('touchmove', (e) => {
             if (touchTimer) {
-                clearTimeout(touchTimer);
-                touchTimer = null;
+                // Since this.touch.lastX is updated in canvasContainer,
+                // we should actually compare against the start position we recorded if we want stability.
+                // However, View.touch.hasMoved is set in canvasContainer if moved > 5px.
+                if (this.touch.hasMoved) {
+                    clearTimeout(touchTimer);
+                    touchTimer = null;
+                }
+            }
+            if (menuActive) {
+                // Dispatch event to radial menu to handle "hover" while dragging
+                const touch = e.touches[0];
+                const target = document.elementFromPoint(touch.clientX, touch.clientY);
+                const radialItem = target ? target.closest('.radial-item') : null;
+                
+                document.querySelectorAll('.radial-item').forEach(el => el.classList.remove('active'));
+                if (radialItem) {
+                    radialItem.classList.add('active');
+                }
             }
         });
 
         div.addEventListener('contextmenu', (e) => {
             e.preventDefault();
-            this.state.updateNode(node.id, { complete: !node.complete });
-            this.render();
         });
 
         this.nodeLayer.appendChild(div);
@@ -373,19 +475,33 @@ export class View {
             document.getElementById('task-name').value = node.name;
             document.getElementById('task-notes').value = node.notes;
             document.getElementById('task-complete').checked = node.complete;
+            
+            const parent = this.state.findParent(id);
+            if (parent) {
+                this.parentSearch.value = parent.name || "(Unnamed Task)";
+                this.parentSearch.disabled = false;
+            } else {
+                this.parentSearch.value = "Root";
+                this.parentSearch.disabled = true;
+            }
+            this.parentOptions.classList.add('hidden');
+
             this.detailsPane.classList.remove('hidden');
             
             // Disable move buttons if at boundaries
-            const parent = this.state.findParent(id);
             const btnUp = document.getElementById('btn-up');
             const btnDown = document.getElementById('btn-down');
+            const btnAddSibling = document.getElementById('btn-add-sibling');
+
             if (parent) {
                 const idx = parent.children.findIndex(c => c.id === id);
                 btnUp.disabled = idx === 0;
                 btnDown.disabled = idx === parent.children.length - 1;
+                btnAddSibling.disabled = false;
             } else {
                 btnUp.disabled = true;
                 btnDown.disabled = true;
+                btnAddSibling.disabled = true;
             }
         }
         this.render();
@@ -430,6 +546,7 @@ export class View {
     }
 
     showRadialMenu(x, y, node) {
+        this.isMenuOpen = true;
         const menu = document.createElement('div');
         menu.className = 'radial-menu';
         menu.style.left = `${x}px`;
@@ -459,35 +576,33 @@ export class View {
             btn.innerHTML = `<span>${action.icon}</span>`;
             btn.style.transform = `translate(${ax}px, ${ay}px)`;
             
-            btn.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                action.callback();
-                menu.remove();
-            });
-            // Also mouse for testing
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                action.callback();
-                menu.remove();
-            });
+            // Store callback on element for easier access during touchend on parent
+            btn._actionCallback = action.callback;
 
             menu.appendChild(btn);
         });
 
         document.body.appendChild(menu);
 
-        const closeMenu = (e) => {
-            if (!menu.contains(e.target)) {
-                menu.remove();
-                window.removeEventListener('touchstart', closeMenu);
-                window.removeEventListener('mousedown', closeMenu);
+        const handleGlobalEnd = (e) => {
+            let touch = e.changedTouches ? e.changedTouches[0] : e;
+            const target = document.elementFromPoint(touch.clientX, touch.clientY);
+            const radialItem = target ? target.closest('.radial-item') : null;
+            
+            if (radialItem && radialItem._actionCallback) {
+                radialItem._actionCallback();
             }
+            
+            menu.remove();
+            this.isMenuOpen = false;
+            window.removeEventListener('touchend', handleGlobalEnd);
+            window.removeEventListener('mouseup', handleGlobalEnd);
         };
+
+        // Delay attaching to avoid immediate trigger from the current touch
         setTimeout(() => {
-            window.addEventListener('touchstart', closeMenu);
-            window.addEventListener('mousedown', closeMenu);
+            window.addEventListener('touchend', handleGlobalEnd);
+            window.addEventListener('mouseup', handleGlobalEnd);
         }, 10);
     }
 }

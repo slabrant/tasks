@@ -1,5 +1,5 @@
 export class TaskNode {
-    constructor(name = "New Task", notes = "", complete = false) {
+    constructor(name = "", notes = "", complete = false) {
         this.id = Math.random().toString(36).substr(2, 9);
         this.name = name;
         this.notes = notes;
@@ -97,6 +97,13 @@ export class TaskTree {
         if (parent) {
             const newNode = new TaskNode();
             parent.children.push(newNode);
+            
+            // Adding a child to a completed parent should uncomplete the parent
+            if (parent.complete) {
+                parent.complete = false;
+                this.updateParentCompletion(parent.id);
+            }
+
             this.saveState();
             return newNode;
         }
@@ -182,11 +189,44 @@ export class TaskTree {
     updateParentCompletion(nodeId) {
         const parent = this.findParent(nodeId);
         if (parent) {
-            const allComplete = parent.children.every(c => c.complete);
+            const allComplete = parent.children.length > 0 && parent.children.every(c => c.complete);
             if (parent.complete !== allComplete) {
                 parent.complete = allComplete;
                 this.updateParentCompletion(parent.id);
             }
         }
+    }
+
+    moveNode(nodeId, newParentId) {
+        if (nodeId === this.root.id) return false;
+        if (nodeId === newParentId) return false;
+
+        const node = this.findNode(nodeId);
+        const newParent = this.findNode(newParentId);
+        if (!node || !newParent) return false;
+
+        // Check if newParent is a descendant of node to avoid cycles
+        let curr = newParent;
+        while (curr) {
+            if (curr.id === nodeId) return false;
+            curr = this.findParent(curr.id);
+        }
+
+        const oldParent = this.findParent(nodeId);
+        if (oldParent) {
+            oldParent.children = oldParent.children.filter(c => c.id !== nodeId);
+            this.updateParentCompletion(oldParent.id);
+        }
+
+        newParent.children.push(node);
+        if (newParent.complete) {
+            newParent.complete = false;
+            this.updateParentCompletion(newParent.id);
+        } else {
+            this.updateParentCompletion(nodeId); // Trigger check up from node's new position if needed
+        }
+
+        this.saveState();
+        return true;
     }
 }

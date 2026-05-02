@@ -85,6 +85,63 @@ body, html {
     font-size: 18px;
     transition: box-shadow 0.2s, border-color 0.2s;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    overflow: hidden;
+    min-height: 45px;
+    display: flex;
+    align-items: center;
+}
+
+.node-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100%;
+    text-align: center;
+}
+
+/* Combobox */
+.combobox-container {
+    position: relative;
+    width: 100%;
+}
+
+.combobox-options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 200px;
+    overflow-y: auto;
+    background: white;
+    border: 1px solid #ccc;
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    z-index: 1000;
+    box-shadow: var(--shadow);
+}
+
+.combobox-options.hidden {
+    display: none;
+}
+
+.combobox-item {
+    padding: 10px 15px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.combobox-item:hover {
+    background: #f0f0f0;
+}
+
+.combobox-item.selected {
+    background: var(--node-selected);
+    color: white;
+}
+
+.radial-item.active {
+    background: var(--node-selected);
+    color: white;
 }
 
 .node:hover {
@@ -294,7 +351,7 @@ button.danger:hover { background: #fff5f5; }
     #details-pane {
         width: 100vw;
     }
-    
+
     .actions-grid {
         grid-template-columns: 1fr;
     }
