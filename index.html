@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Tree</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="grid-background"></div>
+    <div id="canvas-container">
+        <div id="tree-container">
+            <svg id="connector-layer"></svg>
+            <div id="node-layer"></div>
+        </div>
+    </div>
+
+    <div id="details-pane" class="hidden">
+        <div class="pane-header">
+            <h3>Task Details</h3>
+            <button id="close-pane">×</button>
+        </div>
+        <div class="pane-content">
+            <label for="task-name">Name</label>
+            <input type="text" id="task-name">
+            
+            <label for="task-notes">Notes</label>
+            <textarea id="task-notes" rows="5"></textarea>
+            
+            <div class="checkbox-row">
+                <input type="checkbox" id="task-complete">
+                <label for="task-complete">Complete</label>
+            </div>
+
+            <div class="actions-grid">
+                <button id="btn-up">Move Up</button>
+                <button id="btn-down">Move Down</button>
+                <button id="btn-add-child">Add Child</button>
+                <button id="btn-add-sibling">Add Sibling</button>
+                <button id="btn-delete" class="danger">Delete</button>
+                <button id="btn-clear">Clear</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="ui-overlay top-left">
+        <button id="menu-toggle">☰</button>
+    </div>
+
+    <div class="ui-overlay top-right">
+        <button id="undo-btn" title="Undo">↶</button>
+        <button id="redo-btn" title="Redo">↷</button>
+    </div>
+
+    <div id="menu-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Menu</h3>
+            <button id="btn-import-md">Import Markdown</button>
+            <button id="btn-export-md">Export Markdown</button>
+            <button id="close-modal">Close</button>
+        </div>
+    </div>
+
+    <div id="markdown-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3 id="md-modal-title">Markdown</h3>
+            <textarea id="md-text" rows="15"></textarea>
+            <div class="modal-actions">
+                <button id="md-confirm">Process</button>
+                <button id="md-cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="main.js"></script>
+</body>
+</html>

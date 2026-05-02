@@ -1,0 +1,169 @@
+export class TaskNode {
+    constructor(name = "New Task", notes = "", complete = false) {
+        this.id = Math.random().toString(36).substr(2, 9);
+        this.name = name;
+        this.notes = notes;
+        this.complete = complete;
+        this.children = [];
+    }
+
+    clone() {
+        const newNode = new TaskNode(this.name, this.notes, this.complete);
+        newNode.children = this.children.map(child => child.clone());
+        return newNode;
+    }
+
+    static fromJSON(data) {
+        const node = new TaskNode(data.name, data.notes, data.complete);
+        node.id = data.id || node.id;
+        if (data.children) {
+            node.children = data.children.map(childData => TaskNode.fromJSON(childData));
+        }
+        return node;
+    }
+}
+
+export class TaskTree {
+    constructor() {
+        this.root = new TaskNode("Root Task");
+        this.undoStack = [];
+        this.redoStack = [];
+    }
+
+    saveState() {
+        const snapshot = JSON.stringify(this.root);
+        if (this.undoStack.length === 0 || this.undoStack[this.undoStack.length - 1] !== snapshot) {
+            this.undoStack.push(snapshot);
+            this.redoStack = [];
+            if (this.undoStack.length > 50) this.undoStack.shift();
+        }
+        localStorage.setItem('taskTree', snapshot);
+    }
+
+    undo() {
+        if (this.undoStack.length > 1) {
+            this.redoStack.push(this.undoStack.pop());
+            const snapshot = this.undoStack[this.undoStack.length - 1];
+            this.root = TaskNode.fromJSON(JSON.parse(snapshot));
+            localStorage.setItem('taskTree', snapshot);
+            return true;
+        }
+        return false;
+    }
+
+    redo() {
+        if (this.redoStack.length > 0) {
+            const snapshot = this.redoStack.pop();
+            this.undoStack.push(snapshot);
+            this.root = TaskNode.fromJSON(JSON.parse(snapshot));
+            localStorage.setItem('taskTree', snapshot);
+            return true;
+        }
+        return false;
+    }
+
+    load() {
+        const saved = localStorage.getItem('taskTree');
+        if (saved) {
+            try {
+                this.root = TaskNode.fromJSON(JSON.parse(saved));
+                this.undoStack = [saved];
+            } catch (e) {
+                console.error("Failed to load state", e);
+            }
+        } else {
+            this.saveState();
+        }
+    }
+
+    findNode(id, current = this.root) {
+        if (current.id === id) return current;
+        for (const child of current.children) {
+            const found = this.findNode(id, child);
+            if (found) return found;
+        }
+        return null;
+    }
+
+    findParent(id, current = this.root) {
+        for (const child of current.children) {
+            if (child.id === id) return current;
+            const found = this.findParent(id, child);
+            if (found) return found;
+        }
+        return null;
+    }
+
+    addChild(parentId) {
+        const parent = this.findNode(parentId);
+        if (parent) {
+            const newNode = new TaskNode();
+            parent.children.push(newNode);
+            this.saveState();
+            return newNode;
+        }
+        return null;
+    }
+
+    addSibling(nodeId) {
+        if (nodeId === this.root.id) return null;
+        const parent = this.findParent(nodeId);
+        if (parent) {
+            const index = parent.children.findIndex(c => c.id === nodeId);
+            const newNode = new TaskNode();
+            parent.children.splice(index + 1, 0, newNode);
+            this.saveState();
+            return newNode;
+        }
+        return null;
+    }
+
+    deleteNode(nodeId) {
+        if (nodeId === this.root.id) {
+            this.root = new TaskNode("Root Task");
+            this.saveState();
+            return true;
+        }
+        const parent = this.findParent(nodeId);
+        if (parent) {
+            parent.children = parent.children.filter(c => c.id !== nodeId);
+            this.saveState();
+            return true;
+        }
+        return false;
+    }
+
+    moveUp(nodeId) {
+        const parent = this.findParent(nodeId);
+        if (!parent) return false;
+        const index = parent.children.findIndex(c => c.id === nodeId);
+        if (index > 0) {
+            [parent.children[index - 1], parent.children[index]] = [parent.children[index], parent.children[index - 1]];
+            this.saveState();
+            return true;
+        }
+        return false;
+    }
+
+    moveDown(nodeId) {
+        const parent = this.findParent(nodeId);
+        if (!parent) return false;
+        const index = parent.children.findIndex(c => c.id === nodeId);
+        if (index < parent.children.length - 1) {
+            [parent.children[index], parent.children[index + 1]] = [parent.children[index + 1], parent.children[index]];
+            this.saveState();
+            return true;
+        }
+        return false;
+    }
+
+    updateNode(id, data) {
+        const node = this.findNode(id);
+        if (node) {
+            Object.assign(node, data);
+            this.saveState();
+            return true;
+        }
+        return false;
+    }
+}
