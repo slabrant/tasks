@@ -30,9 +30,10 @@ document.getElementById('task-complete').addEventListener('change', (e) => {
     }
 });
 
-document.getElementById('close-pane').addEventListener('click', () => {
-    view.deselect();
-});
+// Remove close-pane event listener as it's handled by swipe/background click now
+// document.getElementById('close-pane').addEventListener('click', () => {
+//     view.deselect();
+// });
 
 // Action Buttons
 document.getElementById('btn-up').addEventListener('click', () => {
