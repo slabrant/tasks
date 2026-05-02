@@ -92,48 +92,30 @@ document.getElementById('redo-btn').addEventListener('click', () => {
 });
 
 // Menu / Markdown
-const menuModal = document.getElementById('menu-modal');
 const mdModal = document.getElementById('markdown-modal');
 const mdText = document.getElementById('md-text');
 
 document.getElementById('menu-toggle').addEventListener('click', () => {
-    menuModal.classList.remove('hidden');
-});
-
-document.getElementById('close-modal').addEventListener('click', () => {
-    menuModal.classList.add('hidden');
-});
-
-document.getElementById('btn-import-md').addEventListener('click', () => {
-    menuModal.classList.add('hidden');
-    document.getElementById('md-modal-title').textContent = "Import Markdown";
-    document.getElementById('md-confirm').textContent = "Import";
-    mdText.value = "";
-    mdModal.classList.remove('hidden');
-});
-
-document.getElementById('btn-export-md').addEventListener('click', () => {
-    menuModal.classList.add('hidden');
-    document.getElementById('md-modal-title').textContent = "Export Markdown";
-    document.getElementById('md-confirm').textContent = "Close";
     mdText.value = exportToMarkdown(state.root);
     mdModal.classList.remove('hidden');
 });
 
-document.getElementById('md-cancel').addEventListener('click', () => {
-    mdModal.classList.add('hidden');
+mdModal.addEventListener('click', (e) => {
+    if (e.target === mdModal) {
+        mdModal.classList.add('hidden');
+    }
 });
 
-document.getElementById('md-confirm').addEventListener('click', () => {
-    if (document.getElementById('md-confirm').textContent === "Import") {
-        const newRoot = importFromMarkdown(mdText.value);
-        if (newRoot) {
-            state.root = newRoot;
-            state.saveState();
-            view.render();
-        }
+document.getElementById('md-import').addEventListener('click', () => {
+    const newRoot = importFromMarkdown(mdText.value);
+    if (newRoot) {
+        state.root = newRoot;
+        state.saveState();
+        view.render();
+        mdModal.classList.add('hidden');
+    } else {
+        alert("Failed to parse Markdown. Ensure it follows the '- [ ] Task' format.");
     }
-    mdModal.classList.add('hidden');
 });
 
 function exportToMarkdown(node, indent = "") {

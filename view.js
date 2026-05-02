@@ -21,7 +21,12 @@ export class View {
 
     initEvents() {
         // Panning
-        this.canvasContainer.addEventListener('mousedown', (e) => {
+        window.addEventListener('mousedown', (e) => {
+            if (this.detailsPane.contains(e.target)) return;
+            if (e.target.closest('.ui-overlay')) return;
+            if (e.target.closest('.modal')) return;
+            if (e.target.closest('.node')) return;
+
             if (e.button === 0 || e.button === 1) { // Left or Middle
                 if (e.target === this.canvasContainer || e.target === this.treeContainer) {
                     this.drag.isDragging = true;

@@ -48,8 +48,12 @@ The interaction model prioritizes the two most frequent actions: **adding tasks*
 - **Scroll wheel** → zoom in/out, centered on cursor position.
 
 ### Middle-click Split
-- **Middle-click a node** → duplicates it as a new **child** of itself, copying the name and notes (and subtasks if any). The original node retains all its data.
+- **Middle-click a node** → duplicates it as a new **child** of itself, copying the name and notes. The original node retains all its data. Subtasks of the original node are **not** copied to the new child.
 - The intent is to quickly break a task into a parent + child for further decomposition. A "Clear" button in the Details Pane allows wiping the duplicated child's content if unwanted.
+
+### Completion Propagation
+- **Upward Propagation:** If all children of a parent node are marked as complete, the parent node is automatically marked as complete.
+- **Downward Propagation:** If a parent node is marked as complete, all its children (and their descendants) are automatically marked as complete. If a parent node is marked as incomplete, all its children (and their descendants) are automatically marked as incomplete.
 
 ---
 
@@ -86,15 +90,12 @@ Two **Undo / Redo buttons** are always visible in the corner (e.g. next to the m
 
 ## Menu
 
-A **single menu button** (e.g. hamburger icon, top-left or top-right corner) opens a modal or dropdown for:
+A **single menu button** (e.g. hamburger icon, top-left corner, next to undo/redo) opens a combined **Import/Export modal**:
 
-### Import
-- Accepts **Markdown** text input.
-- Parses checkbox syntax into the task tree (see Markdown Format below).
-
-### Export
-- Outputs the current task tree as **Markdown** using the checkbox syntax.
-- User can copy the output.
+- The modal shows a text area containing the current tree as Markdown.
+- Users can copy the Markdown to export.
+- Users can paste new Markdown and click "Import" to replace the current tree.
+- Clicking outside the modal content closes the modal.
 
 ---
 

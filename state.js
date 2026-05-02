@@ -8,9 +8,7 @@ export class TaskNode {
     }
 
     clone() {
-        const newNode = new TaskNode(this.name, this.notes, this.complete);
-        newNode.children = this.children.map(child => child.clone());
-        return newNode;
+        return new TaskNode(this.name, this.notes, this.complete);
     }
 
     static fromJSON(data) {
@@ -160,10 +158,35 @@ export class TaskTree {
     updateNode(id, data) {
         const node = this.findNode(id);
         if (node) {
+            const oldComplete = node.complete;
             Object.assign(node, data);
+            
+            if (data.hasOwnProperty('complete') && data.complete !== oldComplete) {
+                this.propagateCompletion(node);
+                this.updateParentCompletion(id);
+            }
+
             this.saveState();
             return true;
         }
         return false;
+    }
+
+    propagateCompletion(node) {
+        for (const child of node.children) {
+            child.complete = node.complete;
+            this.propagateCompletion(child);
+        }
+    }
+
+    updateParentCompletion(nodeId) {
+        const parent = this.findParent(nodeId);
+        if (parent) {
+            const allComplete = parent.children.every(c => c.complete);
+            if (parent.complete !== allComplete) {
+                parent.complete = allComplete;
+                this.updateParentCompletion(parent.id);
+            }
+        }
     }
 }

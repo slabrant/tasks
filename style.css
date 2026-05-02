@@ -109,10 +109,19 @@ body, html {
     position: fixed;
     z-index: 100;
     padding: 10px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
 }
 
 .top-left { top: 0; left: 0; }
-.top-right { top: 0; right: 0; }
+
+.divider {
+    width: 1px;
+    height: 24px;
+    background: #ccc;
+    margin: 0 5px;
+}
 
 button {
     padding: 8px 12px;

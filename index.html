@@ -44,30 +44,18 @@
     </div>
 
     <div class="ui-overlay top-left">
-        <button id="menu-toggle">☰</button>
-    </div>
-
-    <div class="ui-overlay top-right">
+        <button id="menu-toggle" title="Menu">☰</button>
+        <span class="divider"></span>
         <button id="undo-btn" title="Undo">↶</button>
         <button id="redo-btn" title="Redo">↷</button>
     </div>
 
-    <div id="menu-modal" class="modal hidden">
-        <div class="modal-content">
-            <h3>Menu</h3>
-            <button id="btn-import-md">Import Markdown</button>
-            <button id="btn-export-md">Export Markdown</button>
-            <button id="close-modal">Close</button>
-        </div>
-    </div>
-
     <div id="markdown-modal" class="modal hidden">
         <div class="modal-content">
-            <h3 id="md-modal-title">Markdown</h3>
+            <h3>Import / Export Markdown</h3>
             <textarea id="md-text" rows="15"></textarea>
             <div class="modal-actions">
-                <button id="md-confirm">Process</button>
-                <button id="md-cancel">Cancel</button>
+                <button id="md-import">Import</button>
             </div>
         </div>
     </div>
