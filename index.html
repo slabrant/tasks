@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Task Tree</title>
+    <title>Task Manager</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -53,12 +53,53 @@
         <button id="redo-btn" title="Redo">↷</button>
     </div>
 
+    <div id="main-menu" class="modal hidden">
+        <div class="modal-content">
+            <h3>Menu</h3>
+            <div class="menu-list">
+                <button id="menu-hide-completed">Hide Completed Tasks</button>
+                <button id="menu-import-export">Import / Export Markdown</button>
+                <button id="menu-help">Help</button>
+                <button id="menu-close">Close</button>
+            </div>
+        </div>
+    </div>
+
     <div id="markdown-modal" class="modal hidden">
         <div class="modal-content">
             <h3>Import / Export Markdown</h3>
             <textarea id="md-text" rows="15"></textarea>
             <div class="modal-actions">
+                <button id="md-back">Back</button>
                 <button id="md-import">Import</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="help-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Help</h3>
+            <div class="help-section">
+                <div id="help-desktop">
+                    <ul>
+                        <li><strong>Left click:</strong> Select task / Pan (on background)</li>
+                        <li><strong>Middle click:</strong> Split/Duplicate task</li>
+                        <li><strong>Right click:</strong> Toggle completion</li>
+                        <li><strong>Scroll:</strong> Zoom in/out</li>
+                    </ul>
+                </div>
+                <div id="help-mobile">
+                    <ul>
+                        <li><strong>Tap:</strong> Select task</li>
+                        <li><strong>Drag:</strong> Pan tree</li>
+                        <li><strong>Pinch:</strong> Zoom in/out</li>
+                        <li><strong>Long Press:</strong> Quick Actions (Toggle/Split)</li>
+                        <li><strong>Swipe Right (on Pane):</strong> Close details</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button id="help-close">Close</button>
             </div>
         </div>
     </div>

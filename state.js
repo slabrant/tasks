@@ -26,6 +26,7 @@ export class TaskTree {
         this.root = new TaskNode("Root Task");
         this.undoStack = [];
         this.redoStack = [];
+        this.hideCompleted = false;
     }
 
     saveState() {
@@ -36,6 +37,7 @@ export class TaskTree {
             if (this.undoStack.length > 50) this.undoStack.shift();
         }
         localStorage.setItem('taskTree', snapshot);
+        localStorage.setItem('hideCompleted', JSON.stringify(this.hideCompleted));
     }
 
     undo() {
@@ -62,6 +64,10 @@ export class TaskTree {
 
     load() {
         const saved = localStorage.getItem('taskTree');
+        const savedHide = localStorage.getItem('hideCompleted');
+        if (savedHide !== null) {
+            this.hideCompleted = JSON.parse(savedHide);
+        }
         if (saved) {
             try {
                 this.root = TaskNode.fromJSON(JSON.parse(saved));
@@ -72,6 +78,12 @@ export class TaskTree {
         } else {
             this.saveState();
         }
+    }
+
+    toggleHideCompleted() {
+        this.hideCompleted = !this.hideCompleted;
+        localStorage.setItem('hideCompleted', JSON.stringify(this.hideCompleted));
+        return this.hideCompleted;
     }
 
     findNode(id, current = this.root) {

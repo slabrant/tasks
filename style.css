@@ -289,6 +289,8 @@ button.danger:hover { background: #fff5f5; }
     align-items: center;
 }
 
+.hidden:not(#details-pane) { display: none !important; }
+
 .modal.hidden { display: none; }
 
 .modal-content {
@@ -345,6 +347,26 @@ button.danger:hover { background: #fff5f5; }
 .radial-item:active {
     background: var(--node-selected);
     color: white;
+}
+
+.menu-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.help-section {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.help-section h4 {
+    margin-bottom: 5px;
+}
+
+.help-section ul {
+    margin-top: 0;
+    padding-left: 20px;
 }
 
 @media (max-width: 600px) {

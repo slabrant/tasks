@@ -92,19 +92,68 @@ document.getElementById('redo-btn').addEventListener('click', () => {
     if (state.redo()) view.render();
 });
 
-// Menu / Markdown
+// Menu System
+const mainMenu = document.getElementById('main-menu');
 const mdModal = document.getElementById('markdown-modal');
+const helpModal = document.getElementById('help-modal');
 const mdText = document.getElementById('md-text');
 
 document.getElementById('menu-toggle').addEventListener('click', () => {
+    mainMenu.classList.remove('hidden');
+    updateMenuButtons();
+});
+
+document.getElementById('menu-hide-completed').addEventListener('click', () => {
+    state.toggleHideCompleted();
+    view.render();
+    updateMenuButtons();
+});
+
+function updateMenuButtons() {
+    const btn = document.getElementById('menu-hide-completed');
+    btn.textContent = state.hideCompleted ? "Show Completed Tasks" : "Hide Completed Tasks";
+}
+
+document.getElementById('menu-import-export').addEventListener('click', () => {
     mdText.value = exportToMarkdown(state.root);
+    mainMenu.classList.add('hidden');
     mdModal.classList.remove('hidden');
 });
 
+document.getElementById('menu-help').addEventListener('click', () => {
+    mainMenu.classList.add('hidden');
+    
+    const isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    document.getElementById('help-desktop').classList.toggle('hidden', isMobile);
+    document.getElementById('help-mobile').classList.toggle('hidden', !isMobile);
+    
+    helpModal.classList.remove('hidden');
+});
+
+document.getElementById('menu-close').addEventListener('click', () => {
+    mainMenu.classList.add('hidden');
+});
+
+document.getElementById('md-back').addEventListener('click', () => {
+    mdModal.classList.add('hidden');
+    mainMenu.classList.remove('hidden');
+});
+
+document.getElementById('help-close').addEventListener('click', () => {
+    helpModal.classList.add('hidden');
+    mainMenu.classList.remove('hidden');
+});
+
+mainMenu.addEventListener('click', (e) => {
+    if (e.target === mainMenu) mainMenu.classList.add('hidden');
+});
+
 mdModal.addEventListener('click', (e) => {
-    if (e.target === mdModal) {
-        mdModal.classList.add('hidden');
-    }
+    if (e.target === mdModal) mdModal.classList.add('hidden');
+});
+
+helpModal.addEventListener('click', (e) => {
+    if (e.target === helpModal) helpModal.classList.add('hidden');
 });
 
 document.getElementById('md-import').addEventListener('click', () => {

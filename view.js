@@ -14,6 +14,7 @@ export class View {
         this.touch = { lastDistance: 0, lastX: 0, lastY: 0, isTouching: false, startTime: 0, hasMoved: false };
         this.selectedNodeId = null;
         this.isMenuOpen = false;
+        this.isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
         this.nodeWidth = 180; // Increased from 160
         this.nodeHeight = 45; // Increased from 40
@@ -26,16 +27,25 @@ export class View {
     initEvents() {
         // Swipe to dismiss details pane
         let swipeStartX = 0;
+        let swipeStartY = 0;
         this.detailsPane.addEventListener('touchstart', (e) => {
             swipeStartX = e.touches[0].clientX;
+            swipeStartY = e.touches[0].clientY;
         }, { passive: true });
 
-        this.detailsPane.addEventListener('touchend', (e) => {
-            const swipeEndX = e.changedTouches[0].clientX;
-            if (swipeEndX - swipeStartX > 50) { // Swipe right (lowered from 100)
-                this.deselect();
-            }
-        }, { passive: true });
+    this.detailsPane.addEventListener('touchend', (e) => {
+        const swipeEndX = e.changedTouches[0].clientX;
+        const swipeEndY = e.changedTouches[0].clientY;
+        const swipeDeltaX = swipeEndX - swipeStartX;
+        const swipeDeltaY = swipeEndY - swipeStartY;
+        
+        // Only swipe if we started near the left edge of the pane 
+        // OR if the swipe is significant enough.
+        // Also ensure it's a horizontal-ish swipe.
+        if (swipeDeltaX > 150 && Math.abs(swipeDeltaX) > Math.abs(swipeDeltaY) * 2) {
+            this.deselect();
+        }
+    }, { passive: true });
 
         // Auto-scroll to node when keyboard opens
         const inputs = this.detailsPane.querySelectorAll('input, textarea');
@@ -305,9 +315,13 @@ export class View {
         let subtreeHeight = 0;
         const childrenLayouts = [];
 
-        if (node.children.length > 0) {
+        const visibleChildren = this.state.hideCompleted 
+            ? node.children.filter(c => !c.complete)
+            : node.children;
+
+        if (visibleChildren.length > 0) {
             let currentY = y;
-            for (const child of node.children) {
+            for (const child of visibleChildren) {
                 const childLayout = this.calculateLayout(child, x + this.nodeWidth + this.hSpacing, currentY);
                 childrenLayouts.push(childLayout);
                 currentY += childLayout.totalHeight + this.vSpacing;
@@ -338,6 +352,13 @@ export class View {
         if (node.id === this.selectedNodeId) div.classList.add('selected');
         if (node.complete) div.classList.add('complete');
         if (node.notes && node.notes.trim()) div.classList.add('has-notes');
+
+        // Help Tooltips
+        if (this.isMobile) {
+            div.title = "Tap: Select\nLong Press: Radial Menu";
+        } else {
+            div.title = "Left click: Select / Move\nMiddle click: Split Task\nRight click: Toggle Completion";
+        }
         
         const text = document.createElement('span');
         text.className = 'node-text';
@@ -430,13 +451,19 @@ export class View {
 
         div.addEventListener('contextmenu', (e) => {
             e.preventDefault();
+            this.state.updateNode(node.id, { complete: !node.complete });
+            this.render();
         });
 
         this.nodeLayer.appendChild(div);
 
+        const visibleChildren = this.state.hideCompleted 
+            ? node.children.filter(c => !c.complete)
+            : node.children;
+
         // Render connectors to children
-        for (let i = 0; i < node.children.length; i++) {
-            const child = node.children[i];
+        for (let i = 0; i < visibleChildren.length; i++) {
+            const child = visibleChildren[i];
             const childLayout = layout.children[i];
             this.renderConnector(layout, childLayout);
             this.renderNode(child, childLayout);
@@ -488,6 +515,11 @@ export class View {
 
             this.detailsPane.classList.remove('hidden');
             
+            // Focus name field on open
+            setTimeout(() => {
+                document.getElementById('task-name').focus();
+            }, 300); // Wait for transition
+            
             // Disable move buttons if at boundaries
             const btnUp = document.getElementById('btn-up');
             const btnDown = document.getElementById('btn-down');
@@ -510,6 +542,9 @@ export class View {
     deselect() {
         this.selectedNodeId = null;
         this.detailsPane.classList.add('hidden');
+        if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+        }
         this.render();
     }
 
