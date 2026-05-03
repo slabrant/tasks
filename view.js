@@ -15,6 +15,8 @@ export class View {
         this.selectedNodeId = null;
         this.isMenuOpen = false;
         this.isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        this.longPressOccurred = false;
+        this.lastInteractionType = 'mouse';
 
         this.nodeWidth = 180; // Increased from 160
         this.nodeHeight = 45; // Increased from 40
@@ -61,6 +63,7 @@ export class View {
 
         // Panning
         window.addEventListener('mousedown', (e) => {
+            this.lastInteractionType = 'mouse';
             if (this.detailsPane.contains(e.target)) return;
             if (e.target.closest('.ui-overlay')) return;
             if (e.target.closest('.modal')) return;
@@ -124,6 +127,7 @@ export class View {
 
         // Touch Events
         this.canvasContainer.addEventListener('touchstart', (e) => {
+            this.lastInteractionType = 'touch';
             if (this.detailsPane.contains(e.target)) return;
             if (e.target.closest('.ui-overlay')) return;
             if (e.target.closest('.modal')) return;
@@ -391,52 +395,26 @@ export class View {
         });
 
         // Touch handlers for Long Press Radial Menu
-        let touchTimer = null;
-        let menuActive = false;
+        this.touch.hasMoved = false;
         
         div.addEventListener('touchstart', (e) => {
             if (e.touches.length !== 1) return;
-            // Record starting position for move threshold
-            const startTouch = e.touches[0];
-            const startX = startTouch.clientX;
-            const startY = startTouch.clientY;
-
             // Reset movement tracking for this specific touch session
             this.touch.hasMoved = false;
-
-            touchTimer = setTimeout(() => {
-                this.showRadialMenu(startX, startY, node);
-                menuActive = true;
-                touchTimer = null;
-            }, 600);
+            this.longPressOccurred = false;
         }, { passive: true });
 
         div.addEventListener('touchend', (e) => {
-            if (touchTimer) {
-                clearTimeout(touchTimer);
-                touchTimer = null;
-                // If it was a quick tap, select node
-                if (!this.touch.hasMoved && !menuActive) {
-                    e.stopPropagation();
-                    this.selectNode(node.id);
-                }
-            } else if (menuActive) {
-                e.preventDefault(); // Prevent ghost clicks when radial menu was active
+            // If it was a quick tap, select node
+            if (!this.touch.hasMoved && !this.isMenuOpen && !this.longPressOccurred) {
+                e.stopPropagation();
+                this.selectNode(node.id);
             }
-            menuActive = false;
+            this.longPressOccurred = false;
         });
 
         div.addEventListener('touchmove', (e) => {
-            if (touchTimer) {
-                // Since this.touch.lastX is updated in canvasContainer,
-                // we should actually compare against the start position we recorded if we want stability.
-                // However, View.touch.hasMoved is set in canvasContainer if moved > 5px.
-                if (this.touch.hasMoved) {
-                    clearTimeout(touchTimer);
-                    touchTimer = null;
-                }
-            }
-            if (menuActive) {
+            if (this.isMenuOpen) {
                 // Dispatch event to radial menu to handle "hover" while dragging
                 const touch = e.touches[0];
                 const target = document.elementFromPoint(touch.clientX, touch.clientY);
@@ -451,8 +429,18 @@ export class View {
 
         div.addEventListener('contextmenu', (e) => {
             e.preventDefault();
-            this.state.updateNode(node.id, { complete: !node.complete });
-            this.render();
+            this.longPressOccurred = true;
+            
+            if (this.lastInteractionType === 'touch') {
+                // On mobile/touch, show radial menu
+                const x = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0) || (e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientX : 0);
+                const y = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0) || (e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientY : 0);
+                this.showRadialMenu(x, y, node);
+            } else {
+                // On desktop/mouse, toggle completion
+                this.state.updateNode(node.id, { complete: !node.complete });
+                this.render();
+            }
         });
 
         this.nodeLayer.appendChild(div);
@@ -581,7 +569,14 @@ export class View {
     }
 
     showRadialMenu(x, y, node) {
+        if (this.isMenuOpen) return;
         this.isMenuOpen = true;
+
+        // Use vibration if available
+        if (navigator.vibrate) {
+            navigator.vibrate(50);
+        }
+
         const menu = document.createElement('div');
         menu.className = 'radial-menu';
         menu.style.left = `${x}px`;
