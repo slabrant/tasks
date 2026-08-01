@@ -157,15 +157,15 @@ helpModal.addEventListener('click', (e) => {
 });
 
 document.getElementById('md-import').addEventListener('click', () => {
-    const newRoot = importFromMarkdown(mdText.value);
-    if (newRoot) {
-        state.root = newRoot;
-        state.saveState();
-        view.render();
-        mdModal.classList.add('hidden');
-    } else {
-        alert("Failed to parse Markdown. Ensure it follows the '- [ ] Task' format.");
+    const { root, error } = importFromMarkdown(mdText.value);
+    if (error) {
+        alert(error);
+        return;
     }
+    state.root = root;
+    state.saveState();
+    view.render();
+    mdModal.classList.add('hidden');
 });
 
 function exportToMarkdown(node, indent = "") {
@@ -188,9 +188,12 @@ function importFromMarkdown(md) {
     let lastTask = null;
     const stack = [];
 
-    for (let line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
+    const fail = (lineNo, message) => ({ root: null, error: `Line ${lineNo}: ${message}` });
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const lineNo = i + 1;
+        if (!line.trim()) continue;
 
         const indentMatch = line.match(/^(\s*)/);
         const indent = indentMatch ? indentMatch[1].length : 0;
@@ -203,24 +206,35 @@ function importFromMarkdown(md) {
             const node = new TaskNode(name, "", complete);
 
             if (!root) {
+                if (level !== 0) return fail(lineNo, "the first task can't be indented.");
                 root = node;
                 stack[0] = node;
+            } else if (level === 0) {
+                return fail(lineNo, `"${name}" is a second top-level task, but a tree has one root. Indent it under "${root.name}".`);
             } else {
                 while (stack.length > level) stack.pop();
-                const parent = stack[stack.length - 1];
-                if (parent) {
-                    parent.children.push(node);
-                    stack[level] = node;
+                if (stack.length !== level) {
+                    return fail(lineNo, `"${name}" is indented too deep for the task above it. Use two spaces per level.`);
                 }
+                stack[level - 1].children.push(node);
+                stack[level] = node;
             }
             lastTask = node;
         } else {
             const noteMatch = line.match(/^\s*-\s*(.*)$/);
-            if (noteMatch && lastTask) {
-                const note = noteMatch[1].trim();
-                lastTask.notes += (lastTask.notes ? "\n" : "") + note;
+            if (!noteMatch) {
+                return fail(lineNo, 'not a task or a note. Every line starts with "- ".');
             }
+            if (!lastTask) {
+                return fail(lineNo, "a note here has no task above it to attach to.");
+            }
+            const note = noteMatch[1].trim();
+            lastTask.notes += (lastTask.notes ? "\n" : "") + note;
         }
     }
-    return root;
+
+    if (!root) {
+        return { root: null, error: 'No tasks found. Expected lines like "- [ ] Task".' };
+    }
+    return { root, error: null };
 }
