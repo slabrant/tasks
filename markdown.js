@@ -3,15 +3,24 @@ import { TaskNode } from './state.js';
 // A private subtree is marked at its root; everything beneath it inherits.
 export const PRIVATE_MARKER = '{p}';
 
-// ROT13 is its own inverse, so one function both ways. This is obfuscation,
-// not encryption: it keeps the file from being readable at a glance in a diff
-// or over a shoulder. The private repo and the token are the real boundary.
-export function rot13(text) {
+// Caesar shift of one, chosen so it can be read and written by hand without
+// tooling. This is obfuscation, not encryption: it keeps the file from being
+// readable at a glance in a diff or over a shoulder. The private repo and the
+// token are the real boundary.
+export const PRIVATE_SHIFT = 1;
+
+function shiftLetters(text, by) {
+    const offset = ((by % 26) + 26) % 26;
     return text.replace(/[a-zA-Z]/g, (c) => {
         const base = c <= 'Z' ? 65 : 97;
-        return String.fromCharCode(((c.charCodeAt(0) - base + 13) % 26) + base);
+        return String.fromCharCode(((c.charCodeAt(0) - base + offset) % 26) + base);
     });
 }
+
+// Unlike ROT13 a shift of one is not its own inverse, so the two directions
+// are separate.
+export const encodePrivate = (text) => shiftLetters(text, PRIVATE_SHIFT);
+export const decodePrivate = (text) => shiftLetters(text, -PRIVATE_SHIFT);
 
 // A name that would otherwise be mistaken for a marker gets a {} in front.
 const NEEDS_ESCAPE = /^(\{p\}|\{\})/;
@@ -34,13 +43,13 @@ export function exportToMarkdown(node, indent = "", inheritedPrivate = false) {
     // subtree. Dropping the redundant-looking marker would silently make the
     // inner task public the moment the outer one was unmarked.
     const marker = node.private ? `${PRIVATE_MARKER} ` : '';
-    const name = escapeName(isPrivate ? rot13(node.name) : node.name);
+    const name = escapeName(isPrivate ? encodePrivate(node.name) : node.name);
 
     let md = `${indent}- [${node.complete ? 'x' : ' '}] ${marker}${name}\n`;
     if (node.notes) {
         const noteLines = node.notes.split('\n');
         for (const line of noteLines) {
-            md += `${indent}  - ${isPrivate ? rot13(line) : line}\n`;
+            md += `${indent}  - ${isPrivate ? encodePrivate(line) : line}\n`;
         }
     }
     for (const child of node.children) {
@@ -82,7 +91,7 @@ export function importFromMarkdown(md) {
 
             const inherited = level > 0 ? Boolean(privateAt[level - 1]) : false;
             const isPrivate = inherited || marked;
-            const node = new TaskNode(isPrivate ? rot13(rawName) : rawName, "", complete);
+            const node = new TaskNode(isPrivate ? decodePrivate(rawName) : rawName, "", complete);
             // Only the subtree root is flagged, so export puts the marker back
             // in the same place it was read from.
             if (marked) node.private = true;
@@ -119,7 +128,7 @@ export function importFromMarkdown(md) {
             }
             noteLevel = level;
             const raw = noteMatch[1].trim();
-            const note = lastTaskPrivate ? rot13(raw) : raw;
+            const note = lastTaskPrivate ? decodePrivate(raw) : raw;
             lastTask.notes += (lastTask.notes ? "\n" : "") + note;
         }
     }

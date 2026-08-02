@@ -710,7 +710,7 @@ export class View {
                 privateNote.textContent = 'Private because a task above it is. Unmark that one to change it.';
                 privateNote.className = 'hint';
             } else if (node.private) {
-                privateNote.textContent = 'This task and everything under it are masked in the tree and scrambled in the export.';
+                privateNote.textContent = 'This task and everything under it are masked in the tree, and shifted one letter in the export.';
                 privateNote.className = 'hint';
             } else {
                 privateNote.className = 'hint hidden';
