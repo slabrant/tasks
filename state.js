@@ -27,6 +27,7 @@ export class TaskTree {
         this.undoStack = [];
         this.redoStack = [];
         this.hideCompleted = false;
+        this.onChange = null;
     }
 
     saveState() {
@@ -38,6 +39,7 @@ export class TaskTree {
         }
         localStorage.setItem('taskTree', snapshot);
         localStorage.setItem('hideCompleted', JSON.stringify(this.hideCompleted));
+        if (this.onChange) this.onChange();
     }
 
     undo() {
@@ -46,6 +48,7 @@ export class TaskTree {
             const snapshot = this.undoStack[this.undoStack.length - 1];
             this.root = TaskNode.fromJSON(JSON.parse(snapshot));
             localStorage.setItem('taskTree', snapshot);
+            if (this.onChange) this.onChange();
             return true;
         }
         return false;
@@ -57,6 +60,7 @@ export class TaskTree {
             this.undoStack.push(snapshot);
             this.root = TaskNode.fromJSON(JSON.parse(snapshot));
             localStorage.setItem('taskTree', snapshot);
+            if (this.onChange) this.onChange();
             return true;
         }
         return false;

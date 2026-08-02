@@ -51,6 +51,10 @@
     </div>
 
     <div class="ui-overlay bottom-right">
+        <button id="sync-status" class="sync-off" title="Sync status">
+            <span class="sync-dot"></span><span id="sync-label">Sync off</span>
+        </button>
+        <span class="divider"></span>
         <button id="menu-toggle" title="Menu">☰</button>
         <span class="divider"></span>
         <button id="undo-btn" title="Undo">↶</button>
@@ -62,6 +66,8 @@
             <h3>Menu</h3>
             <div class="menu-list">
                 <button id="menu-hide-completed">Hide Completed Tasks</button>
+                <button id="menu-sync-now">Sync Now</button>
+                <button id="menu-sync-settings">Sync Settings</button>
                 <button id="menu-import-export">Import / Export Markdown</button>
                 <button id="menu-help">Help</button>
                 <button id="menu-close">Close</button>
@@ -76,6 +82,45 @@
             <div class="modal-actions">
                 <button id="md-back">Back</button>
                 <button id="md-import">Import</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="sync-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Sync Settings</h3>
+            <p class="warn">Your tasks are pushed to this repo in plain text. Use a <strong>private</strong> repo.</p>
+
+            <div class="field-grid">
+                <label for="sync-owner">Owner</label>
+                <input type="text" id="sync-owner" placeholder="slabrant" autocomplete="off" spellcheck="false">
+
+                <label for="sync-repo">Repo</label>
+                <input type="text" id="sync-repo" placeholder="my_tasks" autocomplete="off" spellcheck="false">
+
+                <label for="sync-path">File path</label>
+                <input type="text" id="sync-path" placeholder="tasks.md" autocomplete="off" spellcheck="false">
+
+                <label for="sync-branch">Branch</label>
+                <input type="text" id="sync-branch" placeholder="main" autocomplete="off" spellcheck="false">
+
+                <label for="sync-token">Token</label>
+                <input type="password" id="sync-token" placeholder="github_pat_..." autocomplete="off" spellcheck="false">
+            </div>
+
+            <p class="hint">
+                Fine-grained personal access token, this repository only, with
+                <strong>Contents: Read and write</strong>. It is kept in this browser's
+                localStorage and sent only to api.github.com.
+            </p>
+
+            <p id="sync-result" class="sync-result hidden"></p>
+
+            <div class="modal-actions">
+                <button id="sync-test">Test Connection</button>
+                <button id="sync-clear-token" class="danger">Clear Token</button>
+                <button id="sync-save">Save</button>
+                <button id="sync-close">Close</button>
             </div>
         </div>
     </div>

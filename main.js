@@ -1,5 +1,10 @@
 import { TaskNode, TaskTree } from './state.js';
 import { View } from './view.js';
+import { Sync } from './sync.js';
+import {
+    DEFAULT_SETTINGS, clearToken, isConfigured, loadSettings, loadToken,
+    saveSettings, saveToken,
+} from './github.js';
 
 const state = new TaskTree();
 state.load();
@@ -119,9 +124,25 @@ document.getElementById('menu-import-export').addEventListener('click', () => {
     mdModal.classList.remove('hidden');
 });
 
+document.getElementById('menu-sync-now').addEventListener('click', () => {
+    mainMenu.classList.add('hidden');
+    if (!isConfigured()) {
+        openSyncSettings();
+        return;
+    }
+    sync.pull().then((r) => {
+        if (r && r.missing) offerToCreateRemote();
+    });
+});
+
+document.getElementById('menu-sync-settings').addEventListener('click', () => {
+    mainMenu.classList.add('hidden');
+    openSyncSettings();
+});
+
 document.getElementById('menu-help').addEventListener('click', () => {
     mainMenu.classList.add('hidden');
-    
+
     const isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
     document.getElementById('help-desktop').classList.toggle('hidden', isMobile);
     document.getElementById('help-mobile').classList.toggle('hidden', !isMobile);
@@ -249,3 +270,160 @@ function importFromMarkdown(md) {
     }
     return { root, error: null };
 }
+
+// GitHub Sync
+const syncModal = document.getElementById('sync-modal');
+const syncStatus = document.getElementById('sync-status');
+const syncLabel = document.getElementById('sync-label');
+const syncResult = document.getElementById('sync-result');
+const syncFields = {
+    owner: document.getElementById('sync-owner'),
+    repo: document.getElementById('sync-repo'),
+    path: document.getElementById('sync-path'),
+    branch: document.getElementById('sync-branch'),
+};
+const syncTokenField = document.getElementById('sync-token');
+
+const sync = new Sync({
+    getText: () => exportToMarkdown(state.root),
+    applyText: (md) => {
+        const { root } = importFromMarkdown(md);
+        if (!root) return false;
+        state.root = root;
+        state.saveState();
+        view.render();
+        return true;
+    },
+    onStatus: (kind, message) => {
+        syncStatus.className = `sync-${kind}`;
+        syncLabel.textContent = message;
+        syncStatus.title = message;
+    },
+    onConflict: (mergedText) => {
+        mdText.value = mergedText;
+        mainMenu.classList.add('hidden');
+        mdModal.classList.remove('hidden');
+        alert('This file changed on GitHub and here. The conflicting parts are marked with <<<<<<< and >>>>>>>. Delete the markers and the version you do not want, then press Import.');
+    },
+});
+
+// applyText writes through saveState, which would immediately re-queue a push.
+let applyingRemote = false;
+const originalApply = sync.applyText;
+sync.applyText = (md) => {
+    applyingRemote = true;
+    try {
+        return originalApply(md);
+    } finally {
+        applyingRemote = false;
+    }
+};
+
+state.onChange = () => {
+    if (!applyingRemote) sync.schedulePush();
+};
+
+function showSyncResult(message, ok) {
+    syncResult.textContent = message;
+    syncResult.className = `sync-result ${ok ? 'ok' : 'bad'}`;
+}
+
+function openSyncSettings() {
+    const settings = loadSettings();
+    syncFields.owner.value = settings.owner;
+    syncFields.repo.value = settings.repo;
+    syncFields.path.value = settings.path || DEFAULT_SETTINGS.path;
+    syncFields.branch.value = settings.branch || DEFAULT_SETTINGS.branch;
+    syncTokenField.value = loadToken();
+    syncResult.className = 'sync-result hidden';
+    syncModal.classList.remove('hidden');
+}
+
+function readSyncFields() {
+    return {
+        owner: syncFields.owner.value,
+        repo: syncFields.repo.value,
+        path: syncFields.path.value,
+        branch: syncFields.branch.value,
+    };
+}
+
+function offerToCreateRemote() {
+    const s = loadSettings();
+    if (confirm(`${s.path} does not exist in ${s.owner}/${s.repo} on ${s.branch}. Create it from the tasks on this device?`)) {
+        sync.createRemote();
+    }
+}
+
+document.getElementById('sync-save').addEventListener('click', () => {
+    saveSettings(readSyncFields());
+    saveToken(syncTokenField.value);
+    if (!isConfigured()) {
+        showSyncResult('Owner, repo, file path and token are all needed before sync can run.', false);
+        return;
+    }
+    showSyncResult('Saved.', true);
+    sync.pull().then((r) => {
+        if (r && r.missing) offerToCreateRemote();
+    });
+});
+
+document.getElementById('sync-test').addEventListener('click', async () => {
+    saveSettings(readSyncFields());
+    saveToken(syncTokenField.value);
+    if (!isConfigured()) {
+        showSyncResult('Fill in owner, repo, file path and token first.', false);
+        return;
+    }
+    showSyncResult('Checking…', true);
+    try {
+        const { GitHubFile } = await import('./github.js');
+        const result = await new GitHubFile(loadSettings(), loadToken()).read();
+        if (result.missing) {
+            showSyncResult('Reached GitHub, but that file is not there yet. Save, then create it.', true);
+        } else {
+            const lines = result.text.split('\n').filter((l) => l.includes('- [')).length;
+            showSyncResult(`Connected. Found ${lines} task lines at ${loadSettings().path}.`, true);
+        }
+    } catch (e) {
+        showSyncResult(e.message, false);
+    }
+});
+
+document.getElementById('sync-clear-token').addEventListener('click', () => {
+    clearToken();
+    syncTokenField.value = '';
+    showSyncResult('Token cleared from this browser. Sync is off until you add one.', true);
+    sync.status('off', 'Sync off');
+});
+
+document.getElementById('sync-close').addEventListener('click', () => {
+    syncModal.classList.add('hidden');
+});
+
+syncModal.addEventListener('click', (e) => {
+    if (e.target === syncModal) syncModal.classList.add('hidden');
+});
+
+syncStatus.addEventListener('click', () => {
+    if (!isConfigured()) {
+        openSyncSettings();
+        return;
+    }
+    sync.pull().then((r) => {
+        if (r && r.missing) offerToCreateRemote();
+    });
+});
+
+// Pull on load, and flush anything pending before the tab goes away.
+if (isConfigured()) {
+    sync.pull().then((r) => {
+        if (r && r.missing) offerToCreateRemote();
+    });
+} else {
+    sync.status('off', 'Sync off');
+}
+
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && sync.dirty) sync.push();
+});
