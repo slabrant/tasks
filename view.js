@@ -693,6 +693,26 @@ export class View {
         this.ancestry.title = parts.map(p => p.name).join(' › ');
     }
 
+    renderSiblings(id) {
+        const container = document.getElementById('task-siblings');
+        const parent = this.state.findParent(id);
+        const siblings = parent ? parent.children : [];
+
+        container.innerHTML = '';
+        let currentRow = null;
+        siblings.forEach((sib, i) => {
+            const row = document.createElement('div');
+            row.className = 'sibling-row';
+            if (sib.id === id) {
+                row.classList.add('current');
+                currentRow = row;
+            }
+            row.textContent = `${i + 1}. ${this.nodeLabel(sib)}`;
+            container.appendChild(row);
+        });
+        if (currentRow) currentRow.scrollIntoView({ block: 'nearest' });
+    }
+
     selectNode(id) {
         this.selectedNodeId = id;
         const node = this.state.findNode(id);
@@ -717,6 +737,7 @@ export class View {
             }
 
             this.renderAncestry(id);
+            this.renderSiblings(id);
 
             const parent = this.state.findParent(id);
             if (parent) {
@@ -737,13 +758,18 @@ export class View {
                 }
             }
 
+            // Only steal focus (and pop the mobile keyboard) when the pane is actually
+            // opening. Re-selecting the same node to refresh it — e.g. after Move
+            // Up/Down — must not yank focus back into the name field.
+            const isOpening = this.detailsPane.classList.contains('hidden');
             this.detailsPane.classList.remove('hidden');
-            
-            // Focus name field on open
-            setTimeout(() => {
-                document.getElementById('task-name').focus();
-            }, 300); // Wait for transition
-            
+
+            if (isOpening) {
+                setTimeout(() => {
+                    document.getElementById('task-name').focus();
+                }, 300); // Wait for transition
+            }
+
             // Disable move buttons if at boundaries
             const btnUp = document.getElementById('btn-up');
             const btnDown = document.getElementById('btn-down');

@@ -326,6 +326,33 @@ button.danger:hover { background: #fff5f5; }
     margin-top: 10px;
 }
 
+.siblings-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 220px;
+    overflow-y: auto;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    padding: 4px;
+}
+
+.sibling-row {
+    padding: 8px 10px;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #666;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sibling-row.current {
+    background: var(--node-selected);
+    color: #fff;
+    font-weight: bold;
+}
+
 /* Private */
 .node.private-masked {
     background: #f3f0fa;
