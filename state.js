@@ -181,7 +181,9 @@ export class TaskTree {
             Object.assign(node, data);
             
             if (data.hasOwnProperty('complete') && data.complete !== oldComplete) {
-                this.propagateCompletion(node);
+                // Checking a task still marks its whole branch done. Unchecking it must not,
+                // because which children were genuinely finished can't be recovered afterwards.
+                if (node.complete) this.propagateCompletion(node);
                 this.updateParentCompletion(id);
             }
 

@@ -30,10 +30,9 @@ document.getElementById('task-complete').addEventListener('change', (e) => {
     }
 });
 
-// Remove close-pane event listener as it's handled by swipe/background click now
-// document.getElementById('close-pane').addEventListener('click', () => {
-//     view.deselect();
-// });
+document.getElementById('close-pane').addEventListener('click', () => {
+    view.deselect();
+});
 
 // Action Buttons
 document.getElementById('btn-up').addEventListener('click', () => {
@@ -186,9 +185,12 @@ function importFromMarkdown(md) {
     const lines = md.split('\n');
     let root = null;
     let lastTask = null;
+    let lastTaskLevel = 0;
+    let noteLevel = null;
     const stack = [];
 
     const fail = (lineNo, message) => ({ root: null, error: `Line ${lineNo}: ${message}` });
+    const NOTE_PARENT = 'a note can\'t have children. Give it a checkbox to make it a task, or unindent what follows it.';
 
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
@@ -204,6 +206,10 @@ function importFromMarkdown(md) {
             const complete = taskMatch[1].toLowerCase() === 'x';
             const name = taskMatch[2].trim();
             const node = new TaskNode(name, "", complete);
+
+            if (noteLevel !== null && level > noteLevel) return fail(lineNo, NOTE_PARENT);
+            noteLevel = null;
+            lastTaskLevel = level;
 
             if (!root) {
                 if (level !== 0) return fail(lineNo, "the first task can't be indented.");
@@ -228,6 +234,11 @@ function importFromMarkdown(md) {
             if (!lastTask) {
                 return fail(lineNo, "a note here has no task above it to attach to.");
             }
+            if (noteLevel !== null && level > noteLevel) return fail(lineNo, NOTE_PARENT);
+            if (level !== lastTaskLevel + 1) {
+                return fail(lineNo, `a note must sit two spaces in from its task, "${lastTask.name}".`);
+            }
+            noteLevel = level;
             const note = noteMatch[1].trim();
             lastTask.notes += (lastTask.notes ? "\n" : "") + note;
         }

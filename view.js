@@ -8,6 +8,7 @@ export class View {
         this.detailsPane = document.getElementById('details-pane');
         this.parentSearch = document.getElementById('task-parent-search');
         this.parentOptions = document.getElementById('task-parent-options');
+        this.ancestry = document.getElementById('task-ancestry');
 
         this.camera = { x: 0, y: 0, zoom: 1 };
         this.drag = { isDragging: false, lastX: 0, lastY: 0, hasMoved: false };
@@ -17,6 +18,7 @@ export class View {
         this.isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         this.longPressOccurred = false;
         this.lastInteractionType = 'mouse';
+        this.pushedPaneHistory = false;
 
         this.nodeWidth = 180; // Increased from 160
         this.nodeHeight = 45; // Increased from 40
@@ -27,6 +29,14 @@ export class View {
     }
 
     initEvents() {
+        // Browser back closes the details pane instead of leaving the app
+        window.addEventListener('popstate', () => {
+            if (this.pushedPaneHistory) {
+                this.pushedPaneHistory = false;
+                this.closePane();
+            }
+        });
+
         // Swipe to dismiss details pane
         let swipeStartX = 0;
         let swipeStartY = 0;
@@ -216,7 +226,10 @@ export class View {
         });
 
         this.parentSearch.addEventListener('focus', () => {
-            this.updateParentOptions(this.parentSearch.value);
+            // The field holds the current parent's name, which would filter the list down
+            // to itself. Show everything and let typing narrow it.
+            this.parentSearch.select();
+            this.updateParentOptions('');
         });
 
         document.addEventListener('click', (e) => {
@@ -248,11 +261,15 @@ export class View {
             return false;
         };
 
+        const terms = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
         const options = allNodes.filter(n => {
             if (n.id === this.selectedNodeId) return false;
             if (isDescendant(n, nodeToMove)) return false;
-            return !(search && !n.name.toLowerCase().includes(search.toLowerCase()));
-
+            if (terms.length === 0) return true;
+            // Match against the ancestry as well, and per word, so "boredom pallets"
+            // finds Pallets under Stave off boredom.
+            const haystack = [...this.ancestorNames(n.id), this.nodeLabel(n)].join(' › ').toLowerCase();
+            return terms.every(t => haystack.includes(t));
         });
 
         this.parentOptions.innerHTML = '';
@@ -260,11 +277,25 @@ export class View {
             const div = document.createElement('div');
             div.className = 'combobox-item';
             if (currentParent && opt.id === currentParent.id) div.classList.add('selected');
-            div.textContent = opt.name || "(Unnamed Task)";
+
+            // Show where each candidate lives — a bare name like "Bugs" is ambiguous.
+            const ancestors = this.ancestorNames(opt.id);
+            if (ancestors.length > 0) {
+                const path = document.createElement('span');
+                path.className = 'combobox-path';
+                path.textContent = ancestors.join(' › ');
+                div.appendChild(path);
+            }
+            const name = document.createElement('span');
+            name.textContent = this.nodeLabel(opt);
+            div.appendChild(name);
+            div.title = [...ancestors, this.nodeLabel(opt)].join(' › ');
+
             div.addEventListener('click', () => {
                 this.state.moveNode(this.selectedNodeId, opt.id);
-                this.parentSearch.value = opt.name;
+                this.parentSearch.value = this.nodeLabel(opt);
                 this.parentOptions.classList.add('hidden');
+                this.renderAncestry(this.selectedNodeId);
                 this.render();
             });
             this.parentOptions.appendChild(div);
@@ -483,6 +514,43 @@ export class View {
         this.connectorLayer.appendChild(path);
     }
 
+    nodeLabel(node) {
+        return node.name || "(Unnamed Task)";
+    }
+
+    ancestorNames(id) {
+        const names = [];
+        let curr = this.state.findParent(id);
+        while (curr) {
+            names.unshift(this.nodeLabel(curr));
+            curr = this.state.findParent(curr.id);
+        }
+        return names;
+    }
+
+    renderAncestry(id) {
+        const node = this.state.findNode(id);
+        this.ancestry.innerHTML = '';
+        if (!node) return;
+
+        const parts = this.ancestorNames(id).map(name => ({ name, current: false }));
+        parts.push({ name: this.nodeLabel(node), current: true });
+
+        parts.forEach((part, i) => {
+            if (i > 0) {
+                const sep = document.createElement('span');
+                sep.className = 'ancestry-sep';
+                sep.textContent = '›';
+                this.ancestry.appendChild(sep);
+            }
+            const span = document.createElement('span');
+            if (part.current) span.className = 'ancestry-current';
+            span.textContent = part.name;
+            this.ancestry.appendChild(span);
+        });
+        this.ancestry.title = parts.map(p => p.name).join(' › ');
+    }
+
     selectNode(id) {
         this.selectedNodeId = id;
         const node = this.state.findNode(id);
@@ -490,16 +558,27 @@ export class View {
             document.getElementById('task-name').value = node.name;
             document.getElementById('task-notes').value = node.notes;
             document.getElementById('task-complete').checked = node.complete;
-            
+
+            this.renderAncestry(id);
+
             const parent = this.state.findParent(id);
             if (parent) {
-                this.parentSearch.value = parent.name || "(Unnamed Task)";
+                this.parentSearch.value = this.nodeLabel(parent);
                 this.parentSearch.disabled = false;
             } else {
                 this.parentSearch.value = "Root";
                 this.parentSearch.disabled = true;
             }
             this.parentOptions.classList.add('hidden');
+
+            if (!this.pushedPaneHistory) {
+                try {
+                    history.pushState({ tasksPane: true }, '');
+                    this.pushedPaneHistory = true;
+                } catch (e) {
+                    // pushState can throw on file:// — the pane still works, back just won't close it.
+                }
+            }
 
             this.detailsPane.classList.remove('hidden');
             
@@ -528,8 +607,19 @@ export class View {
     }
 
     deselect() {
+        // Consume the history entry we pushed when the pane opened, so the back
+        // button doesn't have to be pressed twice to leave the app.
+        if (this.pushedPaneHistory) {
+            this.pushedPaneHistory = false;
+            history.back();
+        }
+        this.closePane();
+    }
+
+    closePane() {
         this.selectedNodeId = null;
         this.detailsPane.classList.add('hidden');
+        this.ancestry.innerHTML = '';
         if (document.activeElement instanceof HTMLElement) {
             document.activeElement.blur();
         }
