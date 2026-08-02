@@ -292,7 +292,7 @@ button.danger:hover { background: #fff5f5; }
 
 .pane-content label { font-weight: bold; font-size: 14px; color: #666; }
 
-.pane-content input[type="text"], 
+.pane-content input[type="text"],
 .pane-content textarea {
     width: 100%;
     padding: 15px;
@@ -300,6 +300,14 @@ button.danger:hover { background: #fff5f5; }
     border-radius: 4px;
     box-sizing: border-box;
     font-size: 18px;
+}
+
+/* .pane-content is a flex column; a child with its own overflow gets an
+   automatic flex min-size of 0, so on short viewports it gets crushed
+   instead of the pane scrolling. Keep these at their intended size and
+   let .pane-content's own overflow-y: auto handle the rest. */
+.pane-content textarea {
+    flex-shrink: 0;
 }
 
 .checkbox-row {
@@ -329,6 +337,7 @@ button.danger:hover { background: #fff5f5; }
 .siblings-list {
     display: flex;
     flex-direction: column;
+    flex-shrink: 0;
     gap: 2px;
     max-height: 220px;
     overflow-y: auto;
