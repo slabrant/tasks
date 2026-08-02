@@ -1,13 +1,21 @@
 import { TaskNode } from './state.js';
 
 // A private subtree is marked at its root; everything beneath it inherits.
+//
+//   {p}  private, text is encoded      — what the app always writes
+//   {P}  private, text is in the clear — only ever hand-written
+//
+// {P} is the way to add to a private branch by hand without doing the cipher
+// yourself: write plainly, mark it, and the next export rewrites it as {p}.
+// A slip then costs you a task that failed to become private, rather than one
+// whose name was silently mangled.
 export const PRIVATE_MARKER = '{p}';
+export const PLAINTEXT_MARKER = '{P}';
 
-// Caesar shift of one, chosen so it can be read and written by hand without
-// tooling. This is obfuscation, not encryption: it keeps the file from being
-// readable at a glance in a diff or over a shoulder. The private repo and the
-// token are the real boundary.
-export const PRIVATE_SHIFT = 1;
+// ROT13. Obfuscation, not encryption: it keeps the file from being readable at
+// a glance in a diff or over a shoulder. The private repo and the token are the
+// real boundary. Being its own inverse, the two directions are the same shift.
+export const PRIVATE_SHIFT = 13;
 
 function shiftLetters(text, by) {
     const offset = ((by % 26) + 26) % 26;
@@ -17,21 +25,23 @@ function shiftLetters(text, by) {
     });
 }
 
-// Unlike ROT13 a shift of one is not its own inverse, so the two directions
-// are separate.
 export const encodePrivate = (text) => shiftLetters(text, PRIVATE_SHIFT);
 export const decodePrivate = (text) => shiftLetters(text, -PRIVATE_SHIFT);
 
 // A name that would otherwise be mistaken for a marker gets a {} in front.
-const NEEDS_ESCAPE = /^(\{p\}|\{\})/;
+const NEEDS_ESCAPE = /^(\{p\}|\{P\}|\{\})/;
 const escapeName = (text) => (NEEDS_ESCAPE.test(text) ? `{}${text}` : text);
 
 function parseName(raw) {
     let name = raw;
-    let marked = false;
-    if (name === PRIVATE_MARKER || name.startsWith(`${PRIVATE_MARKER} `)) {
-        marked = true;
-        name = name.slice(PRIVATE_MARKER.length).trim();
+    let marked = null; // null | 'encoded' | 'plain'
+
+    for (const [marker, kind] of [[PRIVATE_MARKER, 'encoded'], [PLAINTEXT_MARKER, 'plain']]) {
+        if (name === marker || name.startsWith(`${marker} `)) {
+            marked = kind;
+            name = name.slice(marker.length).trim();
+            break;
+        }
     }
     if (name.startsWith('{}')) name = name.slice(2);
     return { name, marked };
@@ -63,10 +73,13 @@ export function importFromMarkdown(md) {
     let root = null;
     let lastTask = null;
     let lastTaskLevel = 0;
-    let lastTaskPrivate = false;
+    let lastTaskEncoded = false;
     let noteLevel = null;
     const stack = [];
     const privateAt = [];
+    // Whether text in this branch is in the clear. Inherited like privacy, so a
+    // whole hand-written subtree under {P} is read literally.
+    const plainAt = [];
 
     const fail = (lineNo, message) => ({ root: null, error: `Line ${lineNo}: ${message}` });
     const NOTE_PARENT = 'a note can\'t have children. Give it a checkbox to make it a task, or unindent what follows it.';
@@ -89,12 +102,17 @@ export function importFromMarkdown(md) {
             noteLevel = null;
             lastTaskLevel = level;
 
-            const inherited = level > 0 ? Boolean(privateAt[level - 1]) : false;
-            const isPrivate = inherited || marked;
-            const node = new TaskNode(isPrivate ? decodePrivate(rawName) : rawName, "", complete);
+            const inheritedPrivate = level > 0 ? Boolean(privateAt[level - 1]) : false;
+            const inheritedPlain = level > 0 ? Boolean(plainAt[level - 1]) : false;
+            const isPrivate = inheritedPrivate || marked !== null;
+            const isPlain = marked === null ? inheritedPlain : marked === 'plain';
+            const encoded = isPrivate && !isPlain;
+
+            const node = new TaskNode(encoded ? decodePrivate(rawName) : rawName, "", complete);
             // Only the subtree root is flagged, so export puts the marker back
-            // in the same place it was read from.
-            if (marked) node.private = true;
+            // in the same place it was read from. Either marker means private;
+            // export always normalises to the encoded one.
+            if (marked !== null) node.private = true;
 
             if (!root) {
                 if (level !== 0) return fail(lineNo, "the first task can't be indented.");
@@ -112,8 +130,10 @@ export function importFromMarkdown(md) {
             }
             privateAt[level] = isPrivate;
             privateAt.length = level + 1;
+            plainAt[level] = isPlain;
+            plainAt.length = level + 1;
             lastTask = node;
-            lastTaskPrivate = isPrivate;
+            lastTaskEncoded = encoded;
         } else {
             const noteMatch = line.match(/^\s*-\s*(.*)$/);
             if (!noteMatch) {
@@ -128,7 +148,7 @@ export function importFromMarkdown(md) {
             }
             noteLevel = level;
             const raw = noteMatch[1].trim();
-            const note = lastTaskPrivate ? decodePrivate(raw) : raw;
+            const note = lastTaskEncoded ? decodePrivate(raw) : raw;
             lastTask.notes += (lastTask.notes ? "\n" : "") + note;
         }
     }
