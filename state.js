@@ -1,18 +1,20 @@
 export class TaskNode {
-    constructor(name = "", notes = "", complete = false) {
+    constructor(name = "", notes = "", complete = false, isPrivate = false) {
         this.id = Math.random().toString(36).substr(2, 9);
         this.name = name;
         this.notes = notes;
         this.complete = complete;
+        // Set only on the root of a private subtree; descendants inherit.
+        this.private = isPrivate;
         this.children = [];
     }
 
     clone() {
-        return new TaskNode(this.name, this.notes, this.complete);
+        return new TaskNode(this.name, this.notes, this.complete, this.private);
     }
 
     static fromJSON(data) {
-        const node = new TaskNode(data.name, data.notes, data.complete);
+        const node = new TaskNode(data.name, data.notes, data.complete, Boolean(data.private));
         node.id = data.id || node.id;
         if (data.children) {
             node.children = data.children.map(childData => TaskNode.fromJSON(childData));
@@ -27,7 +29,24 @@ export class TaskTree {
         this.undoStack = [];
         this.redoStack = [];
         this.hideCompleted = false;
+        this.showPrivate = false;
         this.onChange = null;
+    }
+
+    // A node is private if it is flagged or sits under something that is.
+    isPrivate(nodeId) {
+        let node = this.findNode(nodeId);
+        while (node) {
+            if (node.private) return true;
+            node = this.findParent(node.id);
+        }
+        return false;
+    }
+
+    // Not persisted: revealing private tasks lasts for the session only.
+    toggleShowPrivate() {
+        this.showPrivate = !this.showPrivate;
+        return this.showPrivate;
     }
 
     saveState() {
@@ -72,6 +91,8 @@ export class TaskTree {
         if (savedHide !== null) {
             this.hideCompleted = JSON.parse(savedHide);
         }
+        // Deliberately not persisted as "on": every reload starts hidden.
+        this.showPrivate = false;
         if (saved) {
             try {
                 this.root = TaskNode.fromJSON(JSON.parse(saved));

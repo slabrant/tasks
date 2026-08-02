@@ -46,6 +46,12 @@
                 <label for="task-complete">Complete</label>
             </div>
 
+            <div class="checkbox-row">
+                <input type="checkbox" id="task-private">
+                <label for="task-private">Private</label>
+            </div>
+            <p id="private-note" class="hint hidden"></p>
+
             <div class="actions-grid">
                 <button id="btn-up">Move Up</button>
                 <button id="btn-down">Move Down</button>
@@ -73,6 +79,7 @@
             <h3>Menu</h3>
             <div class="menu-list">
                 <button id="menu-hide-completed">Hide Completed Tasks</button>
+                <button id="menu-show-private">Show Private Tasks</button>
                 <button id="menu-sync-now">Sync Now</button>
                 <button id="menu-sync-settings">Sync Settings</button>
                 <button id="menu-import-export">Import / Export Markdown</button>

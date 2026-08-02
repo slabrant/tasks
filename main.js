@@ -1,5 +1,6 @@
-import { TaskNode, TaskTree } from './state.js';
+import { TaskTree } from './state.js';
 import { View } from './view.js';
+import { exportToMarkdown, importFromMarkdown } from './markdown.js';
 import { Sync } from './sync.js';
 import {
     DEFAULT_SETTINGS, clearToken, isConfigured, loadSettings, loadToken,
@@ -32,6 +33,13 @@ document.getElementById('task-complete').addEventListener('change', (e) => {
     if (view.selectedNodeId) {
         state.updateNode(view.selectedNodeId, { complete: e.target.checked });
         view.render();
+    }
+});
+
+document.getElementById('task-private').addEventListener('change', (e) => {
+    if (view.selectedNodeId) {
+        state.updateNode(view.selectedNodeId, { private: e.target.checked });
+        view.selectNode(view.selectedNodeId);
     }
 });
 
@@ -113,9 +121,18 @@ document.getElementById('menu-hide-completed').addEventListener('click', () => {
     updateMenuButtons();
 });
 
+document.getElementById('menu-show-private').addEventListener('click', () => {
+    state.toggleShowPrivate();
+    view.render();
+    if (view.selectedNodeId) view.selectNode(view.selectedNodeId);
+    updateMenuButtons();
+});
+
 function updateMenuButtons() {
-    const btn = document.getElementById('menu-hide-completed');
-    btn.textContent = state.hideCompleted ? "Show Completed Tasks" : "Hide Completed Tasks";
+    const completed = document.getElementById('menu-hide-completed');
+    completed.textContent = state.hideCompleted ? "Show Completed Tasks" : "Hide Completed Tasks";
+    const priv = document.getElementById('menu-show-private');
+    priv.textContent = state.showPrivate ? "Hide Private Tasks" : "Show Private Tasks";
 }
 
 document.getElementById('menu-import-export').addEventListener('click', () => {
@@ -187,89 +204,6 @@ document.getElementById('md-import').addEventListener('click', () => {
     view.render();
     mdModal.classList.add('hidden');
 });
-
-function exportToMarkdown(node, indent = "") {
-    let md = `${indent}- [${node.complete ? 'x' : ' '}] ${node.name}\n`;
-    if (node.notes) {
-        const noteLines = node.notes.split('\n');
-        for (const line of noteLines) {
-            md += `${indent}  - ${line}\n`;
-        }
-    }
-    for (const child of node.children) {
-        md += exportToMarkdown(child, indent + "  ");
-    }
-    return md;
-}
-
-function importFromMarkdown(md) {
-    const lines = md.split('\n');
-    let root = null;
-    let lastTask = null;
-    let lastTaskLevel = 0;
-    let noteLevel = null;
-    const stack = [];
-
-    const fail = (lineNo, message) => ({ root: null, error: `Line ${lineNo}: ${message}` });
-    const NOTE_PARENT = 'a note can\'t have children. Give it a checkbox to make it a task, or unindent what follows it.';
-
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const lineNo = i + 1;
-        if (!line.trim()) continue;
-
-        const indentMatch = line.match(/^(\s*)/);
-        const indent = indentMatch ? indentMatch[1].length : 0;
-        const level = Math.floor(indent / 2);
-
-        const taskMatch = line.match(/^\s*-\s*\[([ xX]?)\]\s*(.*)$/);
-        if (taskMatch) {
-            const complete = taskMatch[1].toLowerCase() === 'x';
-            const name = taskMatch[2].trim();
-            const node = new TaskNode(name, "", complete);
-
-            if (noteLevel !== null && level > noteLevel) return fail(lineNo, NOTE_PARENT);
-            noteLevel = null;
-            lastTaskLevel = level;
-
-            if (!root) {
-                if (level !== 0) return fail(lineNo, "the first task can't be indented.");
-                root = node;
-                stack[0] = node;
-            } else if (level === 0) {
-                return fail(lineNo, `"${name}" is a second top-level task, but a tree has one root. Indent it under "${root.name}".`);
-            } else {
-                while (stack.length > level) stack.pop();
-                if (stack.length !== level) {
-                    return fail(lineNo, `"${name}" is indented too deep for the task above it. Use two spaces per level.`);
-                }
-                stack[level - 1].children.push(node);
-                stack[level] = node;
-            }
-            lastTask = node;
-        } else {
-            const noteMatch = line.match(/^\s*-\s*(.*)$/);
-            if (!noteMatch) {
-                return fail(lineNo, 'not a task or a note. Every line starts with "- ".');
-            }
-            if (!lastTask) {
-                return fail(lineNo, "a note here has no task above it to attach to.");
-            }
-            if (noteLevel !== null && level > noteLevel) return fail(lineNo, NOTE_PARENT);
-            if (level !== lastTaskLevel + 1) {
-                return fail(lineNo, `a note must sit two spaces in from its task, "${lastTask.name}".`);
-            }
-            noteLevel = level;
-            const note = noteMatch[1].trim();
-            lastTask.notes += (lastTask.notes ? "\n" : "") + note;
-        }
-    }
-
-    if (!root) {
-        return { root: null, error: 'No tasks found. Expected lines like "- [ ] Task".' };
-    }
-    return { root, error: null };
-}
 
 // GitHub Sync
 const syncModal = document.getElementById('sync-modal');

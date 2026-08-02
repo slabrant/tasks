@@ -266,6 +266,9 @@ export class View {
 
     matchesSearch(node) {
         if (this.searchTerms.length === 0) return false;
+        // Hidden private tasks stay out of results entirely; a hit would leak
+        // both the text and the fact that it exists.
+        if (this.isMasked(node)) return false;
         const haystack = `${node.name}\n${node.notes || ''}`.toLowerCase();
         return this.searchTerms.every((term) => haystack.includes(term));
     }
@@ -515,9 +518,13 @@ export class View {
             div.title = "Left click: Select / Move\nMiddle click: Split Task\nRight click: Toggle Completion";
         }
         
+        const masked = this.isMasked(node);
+        if (masked) div.classList.add('private-masked');
+        else if (node.private) div.classList.add('private');
+
         const text = document.createElement('span');
         text.className = 'node-text';
-        text.textContent = node.name || " ";
+        text.textContent = masked ? "🔒" : (node.name || " ");
         div.appendChild(text);
         div.style.left = `${layout.x}px`;
         div.style.top = `${layout.y}px`;
@@ -634,7 +641,13 @@ export class View {
         this.connectorLayer.appendChild(path);
     }
 
+    // True when this node's text should be withheld on screen.
+    isMasked(node) {
+        return !this.state.showPrivate && this.state.isPrivate(node.id);
+    }
+
     nodeLabel(node) {
+        if (this.isMasked(node)) return "🔒 Private";
         return node.name || "(Unnamed Task)";
     }
 
@@ -653,8 +666,17 @@ export class View {
         this.ancestry.innerHTML = '';
         if (!node) return;
 
-        const parts = this.ancestorNames(id).map(name => ({ name, current: false }));
-        parts.push({ name: this.nodeLabel(node), current: true });
+        // Opening a task is the deliberate act that reveals it, so the pane and
+        // its breadcrumb always show the real text.
+        const raw = (n) => n.name || "(Unnamed Task)";
+        const names = [];
+        let curr = this.state.findParent(id);
+        while (curr) {
+            names.unshift(raw(curr));
+            curr = this.state.findParent(curr.id);
+        }
+        const parts = names.map(name => ({ name, current: false }));
+        parts.push({ name: raw(node), current: true });
 
         parts.forEach((part, i) => {
             if (i > 0) {
@@ -678,6 +700,21 @@ export class View {
             document.getElementById('task-name').value = node.name;
             document.getElementById('task-notes').value = node.notes;
             document.getElementById('task-complete').checked = node.complete;
+
+            const inheritedPrivate = this.state.isPrivate(id) && !node.private;
+            const privateBox = document.getElementById('task-private');
+            privateBox.checked = Boolean(node.private);
+            privateBox.disabled = inheritedPrivate;
+            const privateNote = document.getElementById('private-note');
+            if (inheritedPrivate) {
+                privateNote.textContent = 'Private because a task above it is. Unmark that one to change it.';
+                privateNote.className = 'hint';
+            } else if (node.private) {
+                privateNote.textContent = 'This task and everything under it are masked in the tree and scrambled in the export.';
+                privateNote.className = 'hint';
+            } else {
+                privateNote.className = 'hint hidden';
+            }
 
             this.renderAncestry(id);
 

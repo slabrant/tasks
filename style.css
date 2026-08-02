@@ -326,6 +326,23 @@ button.danger:hover { background: #fff5f5; }
     margin-top: 10px;
 }
 
+/* Private */
+.node.private-masked {
+    background: #f3f0fa;
+    border-style: dashed;
+    color: #6b5b95;
+}
+
+.node.private-masked .node-text {
+    font-size: 18px;
+}
+
+.node.private > .node-text::after {
+    content: " 🔒";
+    font-size: 11px;
+    opacity: 0.7;
+}
+
 /* Search */
 #search-bar {
     max-width: calc(100vw - 20px);
