@@ -27,7 +27,7 @@ export class Sync {
     // applyText -> replace the local tree from markdown, returns true on success
     // onStatus  -> (state, message) for the indicator
     // onConflict-> (mergedTextWithMarkers) when a merge needs a human
-    constructor({ getText, applyText, onStatus, onConflict, onAuthError, debounceMs = 5000 }) {
+    constructor({ getText, applyText, onStatus, onConflict, onAuthError, debounceMs = 30000 }) {
         this.getText = getText;
         this.applyText = applyText;
         this.onStatus = onStatus || (() => {});
