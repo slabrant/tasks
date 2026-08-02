@@ -354,12 +354,18 @@ button.danger:hover { background: #fff5f5; }
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    cursor: pointer;
+}
+
+.sibling-row:hover {
+    background: #f0f0f0;
 }
 
 .sibling-row.current {
     background: var(--node-selected);
     color: #fff;
     font-weight: bold;
+    cursor: default;
 }
 
 /* Private */

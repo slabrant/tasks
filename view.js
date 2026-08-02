@@ -703,11 +703,13 @@ export class View {
         siblings.forEach((sib, i) => {
             const row = document.createElement('div');
             row.className = 'sibling-row';
+            row.textContent = `${i + 1}. ${this.nodeLabel(sib)}`;
             if (sib.id === id) {
                 row.classList.add('current');
                 currentRow = row;
+            } else {
+                row.addEventListener('click', () => this.selectNode(sib.id));
             }
-            row.textContent = `${i + 1}. ${this.nodeLabel(sib)}`;
             container.appendChild(row);
         });
         if (currentRow) currentRow.scrollIntoView({ block: 'nearest' });
