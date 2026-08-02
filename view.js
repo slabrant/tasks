@@ -696,7 +696,11 @@ export class View {
     renderSiblings(id) {
         const container = document.getElementById('task-siblings');
         const parent = this.state.findParent(id);
-        const siblings = parent ? parent.children : [];
+        // Completed tasks clutter the reorder list; always keep the current
+        // task visible even if it's complete, so its position stays clear.
+        const siblings = parent
+            ? parent.children.filter(sib => sib.id === id || !sib.complete)
+            : [];
 
         container.innerHTML = '';
         let currentRow = null;
