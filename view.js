@@ -9,6 +9,10 @@ export class View {
         this.parentSearch = document.getElementById('task-parent-search');
         this.parentOptions = document.getElementById('task-parent-options');
         this.ancestry = document.getElementById('task-ancestry');
+        this.searchInput = document.getElementById('search-input');
+        this.searchClear = document.getElementById('search-clear');
+        this.searchResults = document.getElementById('search-results');
+        this.searchTerms = [];
 
         this.camera = { x: 0, y: 0, zoom: 1 };
         this.drag = { isDragging: false, lastX: 0, lastY: 0, hasMoved: false };
@@ -237,6 +241,117 @@ export class View {
                 this.parentOptions.classList.add('hidden');
             }
         });
+
+        // Search
+        this.searchInput.addEventListener('input', () => this.setSearch(this.searchInput.value));
+        this.searchInput.addEventListener('search', () => this.setSearch(this.searchInput.value));
+        this.searchClear.addEventListener('click', () => {
+            this.searchInput.value = '';
+            this.setSearch('');
+            this.searchInput.focus();
+        });
+        this.searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.searchInput.value = '';
+                this.setSearch('');
+            }
+        });
+    }
+
+    setSearch(query) {
+        this.searchTerms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+        this.searchClear.classList.toggle('hidden', this.searchTerms.length === 0);
+        this.render();
+    }
+
+    matchesSearch(node) {
+        if (this.searchTerms.length === 0) return false;
+        const haystack = `${node.name}\n${node.notes || ''}`.toLowerCase();
+        return this.searchTerms.every((term) => haystack.includes(term));
+    }
+
+    collectMatches(node = this.state.root, out = []) {
+        if (this.matchesSearch(node)) out.push(node);
+        for (const child of node.children) this.collectMatches(child, out);
+        return out;
+    }
+
+    renderSearchResults() {
+        if (this.searchTerms.length === 0) {
+            this.searchResults.classList.add('hidden');
+            this.searchResults.innerHTML = '';
+            return;
+        }
+
+        const matches = this.collectMatches();
+        this.searchResults.innerHTML = '';
+        this.searchResults.classList.remove('hidden');
+
+        const count = document.createElement('div');
+        count.className = 'search-count';
+        count.textContent = matches.length === 0
+            ? 'No matches'
+            : `${matches.length} match${matches.length === 1 ? '' : 'es'}`;
+        this.searchResults.appendChild(count);
+
+        for (const node of matches) {
+            const row = document.createElement('div');
+            row.className = 'search-hit';
+            if (node.complete) row.classList.add('complete');
+
+            // Checking off from the results writes to the real node.
+            const box = document.createElement('input');
+            box.type = 'checkbox';
+            box.checked = node.complete;
+            box.title = 'Complete';
+            box.addEventListener('click', (e) => e.stopPropagation());
+            box.addEventListener('change', () => {
+                this.state.updateNode(node.id, { complete: box.checked });
+                if (this.selectedNodeId) this.selectNode(this.selectedNodeId);
+                else this.render();
+            });
+            row.appendChild(box);
+
+            const body = document.createElement('div');
+            body.className = 'search-hit-body';
+
+            const ancestors = this.ancestorNames(node.id);
+            if (ancestors.length > 0) {
+                const path = document.createElement('span');
+                path.className = 'search-hit-path';
+                path.textContent = ancestors.join(' › ');
+                body.appendChild(path);
+            }
+
+            const name = document.createElement('span');
+            name.className = 'search-hit-name';
+            name.textContent = this.nodeLabel(node);
+            body.appendChild(name);
+
+            if (node.notes && node.notes.trim() && this.noteMatches(node)) {
+                const note = document.createElement('span');
+                note.className = 'search-hit-note';
+                note.textContent = node.notes.split('\n').find((line) => this.lineMatches(line)) || '';
+                body.appendChild(note);
+            }
+
+            row.appendChild(body);
+            row.title = [...ancestors, this.nodeLabel(node)].join(' › ');
+            row.addEventListener('click', () => {
+                this.selectNode(node.id);
+                this.scrollToNode(node.id);
+            });
+            this.searchResults.appendChild(row);
+        }
+    }
+
+    lineMatches(line) {
+        const haystack = line.toLowerCase();
+        return this.searchTerms.some((term) => haystack.includes(term));
+    }
+
+    noteMatches(node) {
+        return (node.notes || '').split('\n').some((line) => this.lineMatches(line));
     }
 
     updateParentOptions(search = "") {
@@ -344,6 +459,7 @@ export class View {
         this.renderNode(this.state.root, layout);
         this.applyTransform();
         this.updateUndoRedoButtons();
+        this.renderSearchResults();
     }
 
     calculateLayout(node, x, y) {
@@ -387,6 +503,10 @@ export class View {
         if (node.id === this.selectedNodeId) div.classList.add('selected');
         if (node.complete) div.classList.add('complete');
         if (node.notes && node.notes.trim()) div.classList.add('has-notes');
+        // The tree stays whole while searching; misses recede rather than vanish.
+        if (this.searchTerms.length > 0) {
+            div.classList.add(this.matchesSearch(node) ? 'search-match' : 'search-miss');
+        }
 
         // Help Tooltips
         if (this.isMobile) {

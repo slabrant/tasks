@@ -326,6 +326,112 @@ button.danger:hover { background: #fff5f5; }
     margin-top: 10px;
 }
 
+/* Search */
+#search-bar {
+    max-width: calc(100vw - 20px);
+}
+
+#search-input {
+    width: 220px;
+    max-width: 50vw;
+    padding: 8px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 15px;
+    background: white;
+}
+
+#search-clear {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    font-size: 15px;
+    line-height: 1;
+}
+
+.node.search-miss {
+    opacity: 0.25;
+}
+
+.node.search-match {
+    box-shadow: 0 0 0 2px #e0a800, 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+#search-results {
+    position: fixed;
+    top: 68px;
+    left: 10px;
+    z-index: 100;
+    width: 300px;
+    max-width: calc(100vw - 20px);
+    max-height: 55vh;
+    overflow-y: auto;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+}
+
+.search-count {
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #666;
+    border-bottom: 1px solid #eee;
+    position: sticky;
+    top: 0;
+    background: white;
+}
+
+.search-hit {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 9px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #f2f2f2;
+}
+
+.search-hit:hover {
+    background: #f6f6f6;
+}
+
+.search-hit input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    margin-top: 2px;
+    flex: none;
+}
+
+.search-hit-body {
+    min-width: 0;
+}
+
+.search-hit-path {
+    display: block;
+    font-size: 11px;
+    color: #999;
+    word-break: break-word;
+}
+
+.search-hit-name {
+    display: block;
+    font-size: 15px;
+    word-break: break-word;
+}
+
+.search-hit.complete .search-hit-name {
+    text-decoration: line-through;
+    color: #999;
+}
+
+.search-hit-note {
+    display: block;
+    font-size: 12px;
+    color: #777;
+    margin-top: 2px;
+    word-break: break-word;
+}
+
 /* Sync */
 #sync-status {
     display: inline-flex;

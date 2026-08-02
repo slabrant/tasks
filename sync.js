@@ -27,11 +27,12 @@ export class Sync {
     // applyText -> replace the local tree from markdown, returns true on success
     // onStatus  -> (state, message) for the indicator
     // onConflict-> (mergedTextWithMarkers) when a merge needs a human
-    constructor({ getText, applyText, onStatus, onConflict, debounceMs = 5000 }) {
+    constructor({ getText, applyText, onStatus, onConflict, onAuthError, debounceMs = 5000 }) {
         this.getText = getText;
         this.applyText = applyText;
         this.onStatus = onStatus || (() => {});
         this.onConflict = onConflict || (() => {});
+        this.onAuthError = onAuthError || (() => {});
         this.debounceMs = debounceMs;
         this.base = loadBase();
         this.timer = null;
@@ -68,9 +69,16 @@ export class Sync {
     }
 
     report(e) {
-        if (e && e.kind === 'network') this.status('offline', 'Offline — changes are saved locally');
-        else if (e && e.kind === 'auth') this.status('error', e.message);
-        else this.status('error', e && e.message ? e.message : String(e));
+        if (e && e.kind === 'network') {
+            this.status('offline', 'Offline — changes are saved locally');
+        } else if (e && e.kind === 'auth') {
+            // A rejected token is not something to report and move on from;
+            // sync stays broken until a new one is entered.
+            this.status('error', e.message);
+            this.onAuthError(e.message);
+        } else {
+            this.status('error', e && e.message ? e.message : String(e));
+        }
         return null;
     }
 
@@ -135,7 +143,7 @@ export class Sync {
             return { error: true };
         }
         this.setBase(remote.text, remote.sha);
-        return this.pushNow(remote.sha);
+        return this.pushNow(remote.sha, 'Merged with GitHub');
     }
 
     async push() {
@@ -143,15 +151,15 @@ export class Sync {
         return this.queue(() => this.pushNow(this.base.sha));
     }
 
-    async pushNow(sha) {
+    async pushNow(sha, doneMessage) {
         const text = this.getText();
-        if (this.base.text !== null && text === this.base.text) return this.settled();
+        if (this.base.text !== null && text === this.base.text) return this.settled(doneMessage);
 
         this.status('syncing', 'Saving to GitHub…');
         try {
             const written = await this.file().write(text, sha || this.base.sha, commitMessage());
             this.setBase(text, written.sha);
-            return this.settled();
+            return this.settled(doneMessage);
         } catch (e) {
             if (e.kind !== 'conflict') throw e;
             // Someone else wrote first. Re-read and merge, then try once more.
@@ -177,10 +185,10 @@ export class Sync {
         saveBase(this.base);
     }
 
-    settled() {
+    settled(message) {
         this.dirty = false;
         clearTimeout(this.timer);
-        this.status('synced', 'Synced');
-        return { ok: true };
+        this.status('synced', message || 'Synced');
+        return { ok: true, merged: Boolean(message) };
     }
 }

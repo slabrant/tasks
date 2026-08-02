@@ -4,7 +4,10 @@
 const SETTINGS_KEY = 'taskSyncSettings';
 const TOKEN_KEY = 'taskSyncToken';
 
-export const DEFAULT_SETTINGS = { owner: '', repo: '', path: 'tasks.md', branch: 'main' };
+export const DEFAULT_SETTINGS = { owner: '', repo: '', path: 'tasks.md', branch: 'main', expiry: '' };
+
+// How long before a token lapses we start saying so.
+export const EXPIRY_WARN_DAYS = 14;
 
 export function loadSettings() {
     try {
@@ -21,7 +24,23 @@ export function saveSettings(settings) {
         repo: settings.repo.trim(),
         path: settings.path.trim() || DEFAULT_SETTINGS.path,
         branch: settings.branch.trim() || DEFAULT_SETTINGS.branch,
+        expiry: (settings.expiry || '').trim(),
     }));
+}
+
+// GitHub shows the expiry date once, at creation, and never warns later. The
+// date is recorded here so the app can, since a lapsed token just starts
+// failing otherwise.
+export function tokenExpiry(settings = loadSettings(), now = new Date()) {
+    if (!settings.expiry) return null;
+    const end = Date.parse(`${settings.expiry}T23:59:59Z`);
+    if (Number.isNaN(end)) return null;
+    const days = Math.floor((end - now.getTime()) / 86400000);
+    if (days < 0) return { level: 'expired', days, text: 'Token has expired' };
+    if (days <= EXPIRY_WARN_DAYS) {
+        return { level: 'soon', days, text: `Token expires in ${days} day${days === 1 ? '' : 's'}` };
+    }
+    return { level: 'ok', days, text: `Token expires in ${days} days` };
 }
 
 export const loadToken = () => localStorage.getItem(TOKEN_KEY) || '';

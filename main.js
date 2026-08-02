@@ -3,7 +3,7 @@ import { View } from './view.js';
 import { Sync } from './sync.js';
 import {
     DEFAULT_SETTINGS, clearToken, isConfigured, loadSettings, loadToken,
-    saveSettings, saveToken,
+    saveSettings, saveToken, tokenExpiry,
 } from './github.js';
 
 const state = new TaskTree();
@@ -281,8 +281,10 @@ const syncFields = {
     repo: document.getElementById('sync-repo'),
     path: document.getElementById('sync-path'),
     branch: document.getElementById('sync-branch'),
+    expiry: document.getElementById('sync-expiry'),
 };
 const syncTokenField = document.getElementById('sync-token');
+const syncExpiryNote = document.getElementById('sync-expiry-note');
 
 const sync = new Sync({
     getText: () => exportToMarkdown(state.root),
@@ -295,15 +297,31 @@ const sync = new Sync({
         return true;
     },
     onStatus: (kind, message) => {
-        syncStatus.className = `sync-${kind}`;
-        syncLabel.textContent = message;
-        syncStatus.title = message;
+        // An expiring token outranks whatever the last sync did, because sync
+        // will simply stop working on the date shown.
+        const expiry = tokenExpiry();
+        let shownKind = kind;
+        let shownMessage = message;
+        if (expiry && expiry.level === 'expired' && kind !== 'off') {
+            shownKind = 'error';
+            shownMessage = 'Token has expired — add a new one in Sync Settings';
+        } else if (expiry && expiry.level === 'soon' && kind !== 'off') {
+            shownMessage = `${message} · ${expiry.text}`;
+        }
+        syncStatus.className = `sync-${shownKind}`;
+        syncLabel.textContent = shownMessage;
+        syncStatus.title = shownMessage;
     },
     onConflict: (mergedText) => {
         mdText.value = mergedText;
         mainMenu.classList.add('hidden');
         mdModal.classList.remove('hidden');
         alert('This file changed on GitHub and here. The conflicting parts are marked with <<<<<<< and >>>>>>>. Delete the markers and the version you do not want, then press Import.');
+    },
+    onAuthError: (message) => {
+        openSyncSettings();
+        showSyncResult(`${message} Paste a new token and press Save.`, false);
+        syncTokenField.focus();
     },
 });
 
@@ -334,9 +352,23 @@ function openSyncSettings() {
     syncFields.repo.value = settings.repo;
     syncFields.path.value = settings.path || DEFAULT_SETTINGS.path;
     syncFields.branch.value = settings.branch || DEFAULT_SETTINGS.branch;
+    syncFields.expiry.value = settings.expiry || '';
     syncTokenField.value = loadToken();
     syncResult.className = 'sync-result hidden';
+    updateExpiryNote();
     syncModal.classList.remove('hidden');
+}
+
+function updateExpiryNote() {
+    const expiry = tokenExpiry({ ...loadSettings(), expiry: syncFields.expiry.value });
+    if (!expiry) {
+        syncExpiryNote.className = 'hint hidden';
+        return;
+    }
+    syncExpiryNote.textContent = expiry.level === 'ok'
+        ? expiry.text
+        : `${expiry.text}. Create a new one on GitHub and paste it above.`;
+    syncExpiryNote.className = expiry.level === 'ok' ? 'hint' : 'hint warn';
 }
 
 function readSyncFields() {
@@ -345,8 +377,14 @@ function readSyncFields() {
         repo: syncFields.repo.value,
         path: syncFields.path.value,
         branch: syncFields.branch.value,
+        expiry: syncFields.expiry.value,
     };
 }
+
+syncFields.expiry.addEventListener('change', () => {
+    saveSettings(readSyncFields());
+    updateExpiryNote();
+});
 
 function offerToCreateRemote() {
     const s = loadSettings();

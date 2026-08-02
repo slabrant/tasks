@@ -15,6 +15,13 @@
         </div>
     </div>
 
+    <div class="ui-overlay top-left" id="search-bar">
+        <input type="search" id="search-input" placeholder="Search tasks…" aria-label="Search tasks" autocomplete="off" spellcheck="false">
+        <button id="search-clear" class="hidden" title="Clear search" aria-label="Clear search">✕</button>
+    </div>
+
+    <div id="search-results" class="hidden"></div>
+
     <div id="details-pane" class="hidden">
         <div class="pane-header">
             <div id="task-ancestry" class="ancestry"></div>
@@ -78,7 +85,7 @@
     <div id="markdown-modal" class="modal hidden">
         <div class="modal-content">
             <h3>Import / Export Markdown</h3>
-            <textarea id="md-text" rows="15"></textarea>
+            <textarea id="md-text" rows="15" aria-label="Markdown"></textarea>
             <div class="modal-actions">
                 <button id="md-back">Back</button>
                 <button id="md-import">Import</button>
@@ -106,12 +113,18 @@
 
                 <label for="sync-token">Token</label>
                 <input type="password" id="sync-token" placeholder="github_pat_..." autocomplete="off" spellcheck="false">
+
+                <label for="sync-expiry">Token expires</label>
+                <input type="date" id="sync-expiry">
             </div>
+
+            <p id="sync-expiry-note" class="hint hidden"></p>
 
             <p class="hint">
                 Fine-grained personal access token, this repository only, with
                 <strong>Contents: Read and write</strong>. It is kept in this browser's
-                localStorage and sent only to api.github.com.
+                localStorage and sent only to api.github.com. GitHub never warns you
+                before one lapses, so record the expiry date above.
             </p>
 
             <p id="sync-result" class="sync-result hidden"></p>
