@@ -24,7 +24,7 @@ export class View {
         this.lastInteractionType = 'mouse';
         this.pushedPaneHistory = false;
 
-        this.nodeWidth = 180; // Increased from 160
+        this.nodeWidth = 230; // Increased from 180
         this.nodeHeight = 45; // Increased from 40
         this.hSpacing = 120; // Increased from 100
         this.vSpacing = 25; // Increased from 20
