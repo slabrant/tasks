@@ -311,6 +311,9 @@ button.danger:hover { background: #fff5f5; }
     /* A notch smaller than the single-line fields above, so a long note reads
        as a block of text rather than as a wall of headings. */
     font-size: 16px;
+    /* Only the family needs saying: a textarea already matches an input's size,
+       but defaults to monospace rather than inheriting the page's font. */
+    font-family: inherit;
     /* The field grows to fit what it holds, so there is nothing to drag for.
        Dragging the handle also wrote an inline width that outranked the 100%
        above, leaving the field narrower than the pane for good. */
