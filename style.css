@@ -308,6 +308,13 @@ button.danger:hover { background: #fff5f5; }
    let .pane-content's own overflow-y: auto handle the rest. */
 .pane-content textarea {
     flex-shrink: 0;
+    /* A notch smaller than the single-line fields above, so a long note reads
+       as a block of text rather than as a wall of headings. */
+    font-size: 16px;
+    /* The field grows to fit what it holds, so there is nothing to drag for.
+       Dragging the handle also wrote an inline width that outranked the 100%
+       above, leaving the field narrower than the pane for good. */
+    resize: none;
 }
 
 .checkbox-row {

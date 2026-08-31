@@ -23,10 +23,16 @@ document.getElementById('task-name').addEventListener('input', (e) => {
 });
 
 document.getElementById('task-notes').addEventListener('input', (e) => {
+    view.sizeNotesField();
     if (view.selectedNodeId) {
         state.updateNode(view.selectedNodeId, { notes: e.target.value });
         view.render();
     }
+});
+
+// A change of width moves where lines wrap, which changes the room the field needs.
+window.addEventListener('resize', () => {
+    view.sizeNotesField();
 });
 
 document.getElementById('task-complete').addEventListener('change', (e) => {

@@ -719,12 +719,32 @@ export class View {
         if (currentRow) currentRow.scrollIntoView({ block: 'nearest' });
     }
 
+    // A notes field grows to fit what it holds, so nothing in it is hidden.
+    // Ported from the tiny timecard app.
+    sizeNotesField() {
+        const notesField = document.getElementById('task-notes');
+        const style = getComputedStyle(notesField);
+        const padding = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+
+        // Held at one row, so the field is as tall as a single line and the text
+        // below can be measured against it.
+        notesField.rows = 1;
+
+        const lineHeight = notesField.clientHeight - padding;
+        if (lineHeight <= 0) return;
+
+        // Counted by the room the text takes rather than by its newlines, so a
+        // line that wraps counts every row it fills.
+        notesField.rows = Math.max(1, Math.round((notesField.scrollHeight - padding) / lineHeight));
+    }
+
     selectNode(id) {
         this.selectedNodeId = id;
         const node = this.state.findNode(id);
         if (node) {
             document.getElementById('task-name').value = node.name;
             document.getElementById('task-notes').value = node.notes;
+            this.sizeNotesField();
             document.getElementById('task-complete').checked = node.complete;
 
             const inheritedPrivate = this.state.isPrivate(id) && !node.private;
