@@ -47,7 +47,10 @@ function parseName(raw) {
     return { name, marked };
 }
 
-export function exportToMarkdown(node, indent = "", inheritedPrivate = false) {
+// hideCompleted mirrors what the tree itself hides: a completed task is left
+// out along with everything under it, and the root is always written, so the
+// text reads the way the map looks.
+export function exportToMarkdown(node, indent = "", inheritedPrivate = false, hideCompleted = false) {
     const isPrivate = inheritedPrivate || Boolean(node.private);
     // Every flagged node carries the marker, even one already inside a private
     // subtree. Dropping the redundant-looking marker would silently make the
@@ -63,7 +66,8 @@ export function exportToMarkdown(node, indent = "", inheritedPrivate = false) {
         }
     }
     for (const child of node.children) {
-        md += exportToMarkdown(child, indent + "  ", isPrivate);
+        if (hideCompleted && child.complete) continue;
+        md += exportToMarkdown(child, indent + "  ", isPrivate, hideCompleted);
     }
     return md;
 }

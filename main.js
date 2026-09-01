@@ -141,8 +141,31 @@ function updateMenuButtons() {
     priv.textContent = state.showPrivate ? "Hide Private Tasks" : "Show Private Tasks";
 }
 
+// Everything the export left out, counted the way the tree hides it: a
+// completed task takes its whole subtree with it, complete or not.
+const countDescendants = (node) =>
+    node.children.reduce((n, child) => n + 1 + countDescendants(child), 0);
+
+const countHiddenTasks = (node) => node.children.reduce(
+    (n, child) => n + (child.complete ? 1 + countDescendants(child) : countHiddenTasks(child)),
+    0,
+);
+
+// The text matches the map: with completed tasks hidden, they are absent here
+// too. That makes the box a partial copy of the tree, so it says so — importing
+// it back would keep only what is shown.
+const hiddenFromExport = () => (state.hideCompleted ? countHiddenTasks(state.root) : 0);
+
 document.getElementById('menu-import-export').addEventListener('click', () => {
-    mdText.value = exportToMarkdown(state.root);
+    mdText.value = exportToMarkdown(state.root, "", false, state.hideCompleted);
+
+    const hidden = hiddenFromExport();
+    const note = document.getElementById('md-hidden-note');
+    note.classList.toggle('hidden', hidden === 0);
+    if (hidden > 0) {
+        note.textContent = `Completed tasks are hidden, so ${hidden} ${hidden === 1 ? 'task is' : 'tasks are'} missing from this text. Importing it back would delete ${hidden === 1 ? 'it' : 'them'} — choose Show Completed Tasks first to export everything.`;
+    }
+
     mainMenu.classList.add('hidden');
     mdModal.classList.remove('hidden');
 });
@@ -205,6 +228,15 @@ document.getElementById('md-import').addEventListener('click', () => {
         alert(error);
         return;
     }
+    // Import replaces the whole tree, so importing a filtered export drops the
+    // completed tasks it never contained. Worth asking about rather than doing.
+    const hidden = hiddenFromExport();
+    if (hidden > 0 && !confirm(
+        `Completed tasks are hidden, so ${hidden} ${hidden === 1 ? 'task is' : 'tasks are'} not in this text. `
+        + `Importing replaces the whole tree, which would delete ${hidden === 1 ? 'it' : 'them'}.\n\n`
+        + `Import anyway?`)) {
+        return;
+    }
     state.root = root;
     state.saveState();
     view.render();
@@ -227,6 +259,9 @@ const syncTokenField = document.getElementById('sync-token');
 const syncExpiryNote = document.getElementById('sync-expiry-note');
 
 const sync = new Sync({
+    // Deliberately unfiltered, unlike the Import/Export box. The synced file is
+    // the durable copy of the tree, so hiding completed tasks in the view must
+    // never be what erases them from it.
     getText: () => exportToMarkdown(state.root),
     applyText: (md) => {
         const { root } = importFromMarkdown(md);
