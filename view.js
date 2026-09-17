@@ -515,7 +515,7 @@ export class View {
         if (this.isMobile) {
             div.title = "Tap: Select\nLong Press: Radial Menu";
         } else {
-            div.title = "Left click: Select / Move\nMiddle click: Split Task\nRight click: Toggle Completion";
+            div.title = "Left click: Select / Move\nMiddle click: New Subtask\nRight click: Toggle Completion";
         }
         
         const masked = this.isMasked(node);
@@ -532,12 +532,10 @@ export class View {
         div.style.boxSizing = 'border-box';
         
         div.addEventListener('mousedown', (e) => {
-            if (e.button === 1) { // Middle click split
+            if (e.button === 1) { // Middle click: new empty subtask
                 e.preventDefault();
-                const newNode = node.clone();
-                node.children.push(newNode);
-                this.state.saveState();
-                this.render();
+                const newNode = this.state.addChild(node.id);
+                if (newNode) this.selectNode(newNode.id);
             }
         });
 
@@ -888,11 +886,9 @@ export class View {
                 this.state.updateNode(node.id, { complete: !node.complete });
                 this.render();
             }},
-            { icon: '⑂', label: 'Split', callback: () => {
-                const newNode = node.clone();
-                node.children.push(newNode);
-                this.state.saveState();
-                this.render();
+            { icon: '⑂', label: 'New Subtask', callback: () => {
+                const newNode = this.state.addChild(node.id);
+                if (newNode) this.selectNode(newNode.id);
             }}
         ];
 

@@ -9,10 +9,6 @@ export class TaskNode {
         this.children = [];
     }
 
-    clone() {
-        return new TaskNode(this.name, this.notes, this.complete, this.private);
-    }
-
     static fromJSON(data) {
         const node = new TaskNode(data.name, data.notes, data.complete, Boolean(data.private));
         node.id = data.id || node.id;
