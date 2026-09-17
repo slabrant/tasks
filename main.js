@@ -123,7 +123,10 @@ document.getElementById('menu-toggle').addEventListener('click', () => {
 
 document.getElementById('menu-hide-completed').addEventListener('click', () => {
     state.toggleHideCompleted();
-    view.render();
+    // Re-select so the open pane's sibling list and move buttons match what the
+    // map now shows; the buttons depend on which siblings are visible.
+    if (view.selectedNodeId) view.selectNode(view.selectedNodeId);
+    else view.render();
     updateMenuButtons();
 });
 

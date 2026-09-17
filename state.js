@@ -175,28 +175,44 @@ export class TaskTree {
         return false;
     }
 
-    moveUp(nodeId) {
+    // With completed tasks hidden, the sibling next to a task in the array may
+    // not be on screen, and swapping with it looks like nothing happened. Moves
+    // step past the next *visible* sibling instead, carrying any hidden ones
+    // along.
+    visibleSibling(parent, index, step) {
+        for (let i = index + step; i >= 0 && i < parent.children.length; i += step) {
+            if (!this.hideCompleted || !parent.children[i].complete) return i;
+        }
+        return -1;
+    }
+
+    moveBy(nodeId, step) {
         const parent = this.findParent(nodeId);
         if (!parent) return false;
         const index = parent.children.findIndex(c => c.id === nodeId);
-        if (index > 0) {
-            [parent.children[index - 1], parent.children[index]] = [parent.children[index], parent.children[index - 1]];
-            this.saveState();
-            return true;
-        }
-        return false;
+        if (index < 0) return false;
+        const target = this.visibleSibling(parent, index, step);
+        if (target < 0) return false;
+        const [node] = parent.children.splice(index, 1);
+        parent.children.splice(target, 0, node);
+        this.saveState();
+        return true;
+    }
+
+    moveUp(nodeId) {
+        return this.moveBy(nodeId, -1);
     }
 
     moveDown(nodeId) {
+        return this.moveBy(nodeId, 1);
+    }
+
+    canMove(nodeId, step) {
         const parent = this.findParent(nodeId);
         if (!parent) return false;
         const index = parent.children.findIndex(c => c.id === nodeId);
-        if (index < parent.children.length - 1) {
-            [parent.children[index], parent.children[index + 1]] = [parent.children[index + 1], parent.children[index]];
-            this.saveState();
-            return true;
-        }
-        return false;
+        if (index < 0) return false;
+        return this.visibleSibling(parent, index, step) >= 0;
     }
 
     updateNode(id, data) {

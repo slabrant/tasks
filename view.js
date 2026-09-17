@@ -802,9 +802,11 @@ export class View {
             const btnAddSibling = document.getElementById('btn-add-sibling');
 
             if (parent) {
-                const idx = parent.children.findIndex(c => c.id === id);
-                btnUp.disabled = idx === 0;
-                btnDown.disabled = idx === parent.children.length - 1;
+                // Greyed out when there's nothing on screen to move past, so a
+                // task with only hidden completed siblings above or below it
+                // doesn't offer a move that would appear to do nothing.
+                btnUp.disabled = !this.state.canMove(id, -1);
+                btnDown.disabled = !this.state.canMove(id, 1);
                 btnAddSibling.disabled = false;
             } else {
                 btnUp.disabled = true;
